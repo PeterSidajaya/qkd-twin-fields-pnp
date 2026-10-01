@@ -1,10 +1,14 @@
 \documentclass[11pt]{article}
 
 \usepackage[margin=1in]{geometry}
-\usepackage{amsmath,amssymb,bm}
+\usepackage{amsmath,amssymb,bm,amsthm}
 \usepackage{booktabs}
 \usepackage{microtype}
 \usepackage[hidelinks]{hyperref}
+
+\newtheorem{proposition}{Proposition}
+\theoremstyle{remark}
+\newtheorem{remark}{Remark}
 
 \title{Working Notes: Plug-and-Play Twin-Field / Phase-Matching QKD}
 \author{}
@@ -130,15 +134,249 @@ Two checks have been used.
 \end{enumerate}
 
 \section{Stage 1: untrusted source with only mean-energy monitoring}
+\label{sec:stage1-rigorous}
 
-With only a mean-energy constraint on Eve's source, the test bases do constrain
-the phase structure. At
+This section writes the bare-source model as an exact infinite-dimensional
+optimization first, and only afterwards introduces the finite-dimensional
+relaxation used numerically. Keeping those two levels separate is important:
+the SDP is rigorous only if every physical source and attack is mapped to a
+feasible point of the numerical problem.
+
+\subsection{Exact source overlaps}
+
+Let \(A\) and \(B\) denote the optical modes entering Alice's and Bob's
+trusted labs and let \(E_0\) purify the state supplied by Eve. Thus, without
+loss of generality, the source can be written as a pure state
+\[
+    \lvert\Psi\rangle_{ABE_0},
+    \qquad
+    \rho_{AB}=\operatorname{Tr}_{E_0}\lvert\Psi\rangle\!\langle\Psi\rvert.
+\]
+For a signal label \(s\), Alice and Bob apply
+\[
+    U_s
+    =
+    \exp\!\left[
+      i\phi_A^s \hat n_A+i\phi_B^s\hat n_B
+    \right],
+\]
+and the global encoded state is
+\[
+    \lvert\psi_s\rangle
+    =
+    (U_s\otimes I_{E_0})\lvert\Psi\rangle.
+\]
+
+\begin{proposition}[Exact overlap formula]
+For any two signal labels \(s,t\),
+\begin{equation}
+    \Lambda_{st}
+    :=
+    \langle\psi_s\vert\psi_t\rangle
+    =
+    \sum_{n_A,n_B\ge0}
+      p_{n_A,n_B}
+      e^{i\Delta\phi_A n_A+i\Delta\phi_B n_B},
+    \label{eq:stage1-exact-overlap}
+\end{equation}
+where
+\[
+    p_{n_A,n_B}
+    :=
+    \langle n_A,n_B\vert\rho_{AB}\vert n_A,n_B\rangle,
+\]
+\(\Delta\phi_X=\phi_X^t-\phi_X^s\), and
+\(\sum_{n_A,n_B}p_{n_A,n_B}=1\).
+Equation~\eqref{eq:stage1-exact-overlap} is exact even if
+\(\rho_{AB}\) has arbitrary Fock-basis coherences.
+\end{proposition}
+
+\begin{proof}
+Since \(U_s^\dagger U_t\) is diagonal in the joint Fock basis,
+\begin{align}
+    \Lambda_{st}
+    &=
+    \operatorname{Tr}
+    \left[
+      \rho_{AB}U_s^\dagger U_t
+    \right] \\
+    &=
+    \sum_{n_A,n_B}
+    \langle n_A,n_B\vert\rho_{AB}\vert n_A,n_B\rangle
+    e^{i\Delta\phi_A n_A+i\Delta\phi_B n_B}.
+\end{align}
+All off-diagonal matrix elements of \(\rho_{AB}\) vanish from the trace.
+\end{proof}
+
+Thus the unknown source enters the Gram constraints only through a classical
+probability distribution \(p_{n_A,n_B}\), even though the physical source
+itself need not be phase randomized.
+
+\subsection{Exact Gram constraints}
+
+Represent Eve's channel and announcement by an isometry
+\[
+    V:\lvert\psi_s\rangle
+    \longmapsto
+    \sum_z \lvert z\rangle_Z\lvert e_s^z\rangle_E,
+\]
+where \(z\) is the public announcement and the
+\(\lvert e_s^z\rangle\) are sub-normalized residual states. Isometry
+preserves inner products, so
+\begin{equation}
+    \Lambda_{st}
+    =
+    \sum_z
+      \langle e_s^z\vert e_t^z\rangle.
+    \label{eq:stage1-gram-conservation}
+\end{equation}
+If \(G\) is the Gram matrix of all vectors
+\(\{\lvert e_s^z\rangle\}_{s,z}\), then \(G\succeq0\),
+Eq.~\eqref{eq:stage1-gram-conservation} is linear in \(G\), and the observed
+probabilities are diagonal entries,
+\[
+    P(z\mid s)
+    =
+    \lVert e_s^z\rVert^2
+    =
+    G[(z,s),(z,s)].
+\]
+Consequently the pass probabilities, QBER constraints, and the phase-error
+objective inherited from Eq.~(A7) of arXiv:1901.01942 are affine functions of
+\(G\).
+
+The exact optimization would therefore maximize the phase-error functional
+over \(G\) and the infinite distribution \(p\), subject to
+\[
+    G\succeq0,
+    \qquad
+    p_{n_A,n_B}\ge0,
+    \qquad
+    \sum p_{n_A,n_B}=1,
+\]
+the overlap equalities
+\eqref{eq:stage1-exact-overlap}--\eqref{eq:stage1-gram-conservation}, the
+observed statistics, and the monitored energy constraints
+\begin{equation}
+    \mathbb E[n_A]\le\frac{\bar n}{2},
+    \qquad
+    \mathbb E[n_B]\le\frac{\bar n}{2}.
+    \label{eq:stage1-energy-exact}
+\end{equation}
+
+\subsection{Rigorous photon-number truncation}
+
+For computation define
+\[
+    S_N
+    :=
+    \{(n_A,n_B):n_A+n_B\le N\}
+\]
+and
+\[
+    \varepsilon_N
+    :=
+    1-\sum_{(n_A,n_B)\in S_N}p_{n_A,n_B}.
+\]
+Write
+\[
+    \Lambda_{st}
+    =
+    \Lambda^{(N)}_{st}+r_{st},
+\]
+where
+\[
+    \Lambda^{(N)}_{st}
+    =
+    \sum_{(n_A,n_B)\in S_N}
+    p_{n_A,n_B}
+    e^{i\Delta\phi_A n_A+i\Delta\phi_B n_B}.
+\]
+Because every discarded phase factor has modulus one,
+\begin{equation}
+    \lvert r_{st}\rvert
+    \le
+    \varepsilon_N.
+    \label{eq:stage1-tail-overlap}
+\end{equation}
+Hence every physical attack satisfies
+\begin{equation}
+    \left|
+      \sum_zG[(z,s),(z,t)]
+      -
+      \Lambda^{(N)}_{st}
+    \right|
+    \le
+    \varepsilon_N.
+    \label{eq:stage1-soc}
+\end{equation}
+
+The tail must also be charged to the energy budget. Since
+\(n_A+n_B\ge N+1\) on \(S_N^c\),
+\begin{equation}
+    \sum_{S_N}p_{n_A,n_B}(n_A+n_B)
+    +(N+1)\varepsilon_N
+    \le
+    \bar n.
+    \label{eq:stage1-combined-energy}
+\end{equation}
+Dropping the nonnegative tail also gives the individually valid constraints
+\begin{equation}
+    \sum_{S_N}p_{n_A,n_B}n_A
+    \le\frac{\bar n}{2},
+    \qquad
+    \sum_{S_N}p_{n_A,n_B}n_B
+    \le\frac{\bar n}{2}.
+    \label{eq:stage1-perarm-energy}
+\end{equation}
+
+Equations~\eqref{eq:stage1-tail-overlap}--\eqref{eq:stage1-perarm-energy}
+define an \emph{outer relaxation}: every physical source obeying
+\eqref{eq:stage1-energy-exact} maps to a feasible truncated point. Therefore
+maximizing \(e_{\rm ph}\) over this relaxation gives a valid upper bound,
+subject to the separate open question about using the published phase-error
+functional for arbitrary photon statistics.
+
+\begin{remark}[Why the tail cannot be charged separately to both arms]
+It would be unsound to add \((N+1)\varepsilon_N\) to each of the two
+per-arm constraints. A discarded point such as \((0,N+1)\) has
+\(n_A=0\), so there is no lower bound \(n_A\ge N+1\) on the discarded set.
+Only the combined photon number has the required lower bound.
+\end{remark}
+
+\subsection{A first moment cannot control bunching}
+
+For a one-mode distribution with fixed mean \(\mu>0\), consider
+\begin{equation}
+    P(N=0)=1-\frac{\mu}{K},
+    \qquad
+    P(N=K)=\frac{\mu}{K},
+    \qquad K\ge\mu.
+    \label{eq:stage1-two-point}
+\end{equation}
+Then \(\mathbb E[N]=\mu\), but
+\begin{equation}
+    g^{(2)}
+    =
+    \frac{\mathbb E[N(N-1)]}{\mathbb E[N]^2}
+    =
+    \frac{K-1}{\mu},
+    \label{eq:stage1-unbounded-g2}
+\end{equation}
+which diverges as \(K\to\infty\). Thus no bound on \(g^{(2)}\), or on any
+higher moment, follows from a mean-energy constraint alone.
+
+This does not by itself prove the optimal QKD attack, but it proves the
+structural point used later: the monitored first moment leaves arbitrarily
+strong pulse-to-pulse concentration available to Eve.
+
+Numerically, at
 \[
     \bar n=10^{-2},
     \qquad L=0,
     \qquad N_{\max}=7,
 \]
-the current results are
+the current phase-error values are
 \begin{center}
 \begin{tabular}{ccc}
 \toprule
@@ -151,47 +389,194 @@ the current results are
 \bottomrule
 \end{tabular}
 \end{center}
-so the improvement essentially saturates by \(M=4\).
-
-Nevertheless, the key rate disappears by about \(2\) km. Inspecting Eve's
-optimum shows that the problem is not a failure of the test bases to constrain
-relative phase. Rather, Eve exploits freedom in the photon-number
-distribution. A representative optimum has a very large
-\[
-    g^{(2)}\sim 36,
-\]
-whereas a coherent state has \(g^{(2)}=1\). A first-moment energy constraint
-does not control this bunching.
+so the test bases constrain the phase structure, but the distance remains
+limited by source statistics. A representative optimizer has
+\(g^{(2)}\sim36\).
 
 \section{Stage 2: physical attenuation}
+\label{sec:stage2-rigorous}
 
-\subsection{What changes under attenuation}
-
-Let the trusted local attenuation have transmissivity
+Let \(\mathcal L_\tau\) denote the trusted pure-loss channel of transmissivity
 \[
     \tau=t^2.
 \]
-If the incoming state is a Fock state \(\lvert m\rangle\), then after pure loss
-the transmitted photon number is binomially distributed,
-\[
-    N\sim{\rm Binomial}(m,\tau).
-\]
-For two phase encodings that differ by \(\Delta\phi\), the relevant transmitted
-overlap is therefore
+For simplicity the same \(\tau\) is written for both arms; the formulas
+generalize immediately to \(\tau_A\ne\tau_B\).
+
+\subsection{Phase covariance and the common mixed-state orbit}
+
+Pure loss is phase covariant:
 \begin{equation}
-    \Lambda_m(\Delta\phi)
+    \mathcal L_\tau
+    \!\left(
+      e^{i\theta\hat n}\rho e^{-i\theta\hat n}
+    \right)
     =
+    e^{i\theta\hat n}
+    \mathcal L_\tau(\rho)
+    e^{-i\theta\hat n}.
+    \label{eq:stage2-covariance}
+\end{equation}
+This follows directly from the beamsplitter dilation of pure loss.
+
+Let \(T_A,T_B\) be the transmitted modes and retain Eve's original purifying
+system \(E_0\) as a spectator. By covariance, the family arriving back at
+the untrusted node has the form
+\begin{equation}
+    \rho_s^{TE_0}
+    =
+    W_s\rho_0^{TE_0}W_s^\dagger,
+    \qquad
+    W_s
+    =
+    e^{i\phi_A^s\hat n_{T_A}+i\phi_B^s\hat n_{T_B}}
+    \otimes I_{E_0},
+    \label{eq:stage2-unitary-orbit}
+\end{equation}
+for one state \(\rho_0^{TE_0}\) independent of \(s\).
+
+\begin{proposition}[Common purification]
+Choose a purification \(\lvert\chi\rangle_{TE_0R}\) of
+\(\rho_0^{TE_0}\) and define
+\[
+    \lvert\chi_s\rangle
+    =
+    (W_s\otimes I_R)\lvert\chi\rangle.
+\]
+Then
+\begin{equation}
+    \langle\chi_s\vert\chi_t\rangle
+    =
+    \operatorname{Tr}
+    \left[
+      \rho_0^{TE_0}W_s^\dagger W_t
+    \right]
+    =
+    \operatorname{Tr}_{T}
+    \left[
+      \rho_0^{T}
+      e^{i\Delta\phi_A\hat n_{T_A}
+        +i\Delta\phi_B\hat n_{T_B}}
+    \right].
+    \label{eq:stage2-purified-overlap}
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Use
+\(\langle\chi|(X\otimes I)|\chi\rangle=\operatorname{Tr}(\rho_0X)\).
+The second equality follows because \(W_s^\dagger W_t\) acts trivially on
+\(E_0\).
+\end{proof}
+
+This is the precise reason the mixed-state obstruction discussed in
+Section~V of arXiv:2012.11104 does not directly apply here. Here the entire
+mixed family is a known unitary orbit of one common state.
+
+The auxiliary system \(R\) is a mathematical purification, not a physical
+system available to Eve. Any physical attack on \(TE_0\) extends to
+\(V\otimes I_R\). If the SDP optimizes over an arbitrary PSD Gram matrix
+without enforcing that tensor-product restriction, it only gives Eve more
+power. The resulting optimum is therefore an upper bound on the physical
+phase error.
+
+\begin{remark}[Why keeping the physical reflected port is the wrong
+purification for this purpose]
+If the reflected port of the attenuator is retained explicitly, the total
+beamsplitter evolution is unitary and independent of \(s\), so the global
+overlaps are exactly the pre-loss overlaps. The useful construction is to
+trace out the trusted loss port first and then purify the reduced transmitted
+state.
+\end{remark}
+
+\subsection{Exact overlap after thinning}
+
+For one incoming Fock component \(\lvert m\rangle\),
+\[
+    N\mid m\sim\operatorname{Binomial}(m,\tau).
+\]
+Therefore
+\begin{align}
+    \mathbb E[e^{i\Delta\phi N}\mid m]
+    &=
+    \sum_{n=0}^{m}
+      \binom{m}{n}
+      \tau^n(1-\tau)^{m-n}
+      e^{i\Delta\phi n} \\
+    &=
     \left(
-        1-\tau+\tau e^{i\Delta\phi}
+      1-\tau+\tau e^{i\Delta\phi}
     \right)^m.
-    \label{eq:fock-overlap}
+    \label{eq:stage2-binomial-kernel}
+\end{align}
+For a two-arm input distribution \(p_{m_A,m_B}\),
+\begin{equation}
+    \Lambda^{(\tau)}_{st}
+    =
+    \sum_{m_A,m_B}
+    p_{m_A,m_B}
+    z_A^{m_A}z_B^{m_B},
+    \qquad
+    z_X
+    :=
+    1-\tau+\tau e^{i\Delta\phi_X}.
+    \label{eq:stage2-exact-kernel}
 \end{equation}
 
-Numerically, at
+If the input is truncated to
+\(S_N=\{m_A+m_B\le N\}\), define
 \[
-    \bar n=10^{-2},\qquad L=0,\qquad M=4,\qquad N_{\rm in}=60,
+    \rho_{st}:=\max\{|z_A|,|z_B|\}.
 \]
-one finds approximately
+Then
+\begin{equation}
+    \left|
+      \sum_{S_N^c}
+      p_{m_A,m_B}z_A^{m_A}z_B^{m_B}
+    \right|
+    \le
+    \varepsilon_N\,\rho_{st}^{N+1}.
+    \label{eq:stage2-decaying-tail}
+\end{equation}
+When both relevant phase differences are nonzero,
+\(|z_X|<1\) and this can be exponentially smaller than the bare tail
+\(\varepsilon_N\). If one arm has \(\Delta\phi_X=0\), then
+\(|z_X|=1\), so this uniform bound may revert to \(\varepsilon_N\).
+
+\subsection{Loss does not control \(g^{(2)}\)}
+
+For pure loss,
+\[
+    \mathbb E[N_{\rm out}]
+    =
+    \tau\mathbb E[N_{\rm in}],
+\]
+and
+\[
+    \mathbb E[N_{\rm out}(N_{\rm out}-1)]
+    =
+    \tau^2
+    \mathbb E[N_{\rm in}(N_{\rm in}-1)].
+\]
+Therefore
+\begin{equation}
+    g_{\rm out}^{(2)}
+    =
+    g_{\rm in}^{(2)}.
+    \label{eq:stage2-g2-invariance}
+\end{equation}
+Attenuation reduces the scale of the pulse but not its normalized bunching.
+
+If the desired delivered mean is \(\mu\), then the incoming mean before
+attenuation is \(\mu/\tau\), so a direct Fock representation necessarily
+moves to photon numbers of order \(1/\tau\). This is why realistic
+\(\tau\sim10^{-6}\) is computationally inaccessible on the original grid.
+
+The current numerical Fock-grid results at
+\[
+    \bar n=10^{-2},\quad L=0,\quad M=4,\quad N_{\rm in}=60
+\]
+are
 \begin{center}
 \begin{tabular}{cc}
 \toprule
@@ -203,274 +588,473 @@ one finds approximately
 \bottomrule
 \end{tabular}
 \end{center}
-so attenuation genuinely helps the phase-error bound.
-
-\subsection{Why the mixed-state obstruction of arXiv:2012.11104 is not fatal here}
-
-Section~V of arXiv:2012.11104 points out a real obstruction in the general
-channel-discrimination problem: after loss, the received states are mixed, so
-the original pure-state Gram construction is unavailable, while the mixed
-states are not diagonal in a known common basis that would make the
-source-discrimination construction applicable.
-
-Our situation has extra symmetry. Pure loss is phase covariant. If
-\(W_s\) denotes the phase modulation corresponding to symbol \(s\), then the
-attenuated encoded states obey
-\begin{equation}
-    \rho_s = W_s \rho_0 W_s^\dagger
-\end{equation}
-for one common mixed state \(\rho_0\).
-
-Choose one purification \(\lvert\chi\rangle_{TR}\) of \(\rho_0\). A
-consistent purification of the entire encoded family is then
-\begin{equation}
-    \lvert\chi_s\rangle
-    =
-    (W_s\otimes I_R)\lvert\chi\rangle.
-\end{equation}
-Hence
-\begin{align}
-    \langle\chi_{s_1}\vert\chi_{s_2}\rangle
-    &=
-    \operatorname{Tr}
-    \left[
-        \rho_0 W_{s_1}^\dagger W_{s_2}
-    \right].
-\end{align}
-Because the phase operators are diagonal in photon number, this quantity is
-determined by the attenuated photon-number distribution.
-
-The important point is therefore not that mixed states can always be handled
-by purification. The important point is that \emph{all of our mixed states
-form a unitary orbit of one common state}, so a single common purification can
-be chosen consistently.
-
-There is also a subtle but important ordering issue. One should first trace
-out the trusted loss port and then purify the transmitted reduced state as a
-mathematical device. If one instead keeps the physical reflected port as part
-of the purification, the beamsplitter is unitary and the global overlaps are
-identical to the input overlaps. In that global description attenuation
-cannot improve distinguishability at all, which is not the object relevant to
-the untrusted node.
-
-\subsection{Why this still does not solve the protocol}
-
-For realistic plug-and-play attenuation one may need
-\[
-    \tau\sim 10^{-6}
-\]
-or smaller. A direct Fock-grid treatment then requires a photon-number cutoff
-of order \(1/\tau\), which is numerically impractical.
-
-More importantly, attenuation does not remove the essential source freedom:
-\(g^{(2)}\) is invariant under a uniform loss channel. Loss rescales pulse
-energies but does not stop Eve from using a distribution with large
-pulse-to-pulse fluctuations.
 
 \section{Stage 3: strong-attenuation / continuum reformulation}
+\label{sec:stage3-rigorous}
 
-\subsection{Poisson limit of binomial thinning}
+\subsection{Exact lattice measure before taking the limit}
 
-The natural variable in the strong-attenuation regime is the
-\emph{delivered energy}
+Introduce the delivered energies
+\[
+    u_A=\tau m_A,
+    \qquad
+    u_B=\tau m_B.
+\]
+For a discrete input distribution \(p_{m_A,m_B}\), define its push-forward
+measure
 \begin{equation}
-    u=\tau m.
+    \nu_\tau
+    :=
+    \sum_{m_A,m_B}
+      p_{m_A,m_B}
+      \delta_{(\tau m_A,\tau m_B)}.
+    \label{eq:stage3-lattice-measure}
 \end{equation}
-Substituting \(m=u/\tau\) into Eq.~\eqref{eq:fock-overlap} gives
+It is supported on \((\tau\mathbb Z_{\ge0})^2\). The exact overlap is
 \begin{equation}
-    \Lambda
+    \Lambda^{(\tau)}_{st}
     =
+    \int
+      K_\tau(u_A,u_B)
+      \,d\nu_\tau,
+    \label{eq:stage3-exact-integral}
+\end{equation}
+with
+\begin{equation}
+    K_\tau
+    =
+    \prod_{X=A,B}
     \left[
-        1-\tau(1-e^{i\Delta\phi})
-    \right]^{u/\tau}.
+      1-\tau(1-e^{i\Delta\phi_X})
+    \right]^{u_X/\tau}.
+    \label{eq:stage3-finite-kernel}
 \end{equation}
-Taking \(\tau\to0\) at fixed \(u\),
+The energy constraint becomes
 \begin{equation}
-    \Lambda
-    \longrightarrow
-    \exp\left[-u(1-e^{i\Delta\phi})\right].
-    \label{eq:poisson-kernel}
+    \int (u_A+u_B)\,d\nu_\tau
+    \le
+    \bar n.
+    \label{eq:stage3-energy}
 \end{equation}
-This is the characteristic function of a Poisson random variable with mean
-\(u\). Equivalently,
+
+\subsection{Controlled strong-attenuation limit}
+
+Set
 \[
-    {\rm Binomial}(m,\tau)
-    \longrightarrow
-    {\rm Poisson}(m\tau).
+    a_X:=1-e^{i\Delta\phi_X}.
 \]
-
-Thus a strongly attenuated \emph{fixed-energy component} becomes
-Poissonian. An arbitrary untrusted source, however, is not forced to have one
-fixed value of \(u\).
-
-\subsection{Mixed-Poisson description}
-
-Let Eve choose the delivered energy according to a probability measure
-\(\nu(u)\). Conditional on \(u\),
-\[
-    N\mid u \sim {\rm Poisson}(u).
-\]
-The resulting source is therefore a \emph{mixture of Poisson distributions}.
-A trusted coherent source is the special case
-\[
-    \nu(u)=\delta(u-u_0).
-\]
-
-For the two-arm problem the overlap kernel becomes
+For \(\tau\le1/4\), \(|\tau a_X|\le1/2\). The estimate
 \begin{equation}
-    \Lambda
+    |\log(1-w)+w|
+    \le
+    |w|^2,
+    \qquad |w|\le\frac12,
+    \label{eq:stage3-log-bound}
+\end{equation}
+follows from the logarithm power series.
+
+Define
+\begin{equation}
+    K_0(u_A,u_B)
+    :=
+    \exp[-u_Aa_A-u_Ba_B].
+    \label{eq:stage3-limit-kernel}
+\end{equation}
+
+\begin{proposition}[Finite-\(\tau\) kernel error]
+For \(u_A+u_B\le U\),
+\begin{equation}
+    |K_\tau-K_0|
+    \le
+    4\tau(u_A+u_B)e^{4\tau(u_A+u_B)}
+    \le
+    4\tau Ue^{4\tau U}.
+    \label{eq:stage3-pointwise-error}
+\end{equation}
+\end{proposition}
+
+\begin{proof}
+Write \(K_\tau=K_0e^\delta\), where
+\[
+    \delta
     =
-    \int d\nu(u_A,u_B)\,
-    \exp\left[
-        -u_A(1-e^{i\Delta\phi_A})
-        -u_B(1-e^{i\Delta\phi_B})
+    \sum_X
+    \frac{u_X}{\tau}
+    \left[
+      \log(1-\tau a_X)+\tau a_X
     \right].
-    \label{eq:mixed-poisson-kernel}
+\]
+By Eq.~\eqref{eq:stage3-log-bound} and \(|a_X|\le2\),
+\[
+    |\delta|
+    \le
+    4\tau(u_A+u_B).
+\]
+Moreover \(\operatorname{Re}(a_X)=1-\cos\Delta\phi_X\ge0\), so
+\(|K_0|\le1\). Using
+\(|e^\delta-1|\le|\delta|e^{|\delta|}\) gives the result.
+\end{proof}
+
+If the measure is supported in \(u_A+u_B\le U\), integration and
+Eq.~\eqref{eq:stage3-energy} give
+\begin{equation}
+    \left|
+      \Lambda^{(\tau)}_{st}
+      -
+      \Lambda^{(0)}_{st}
+    \right|
+    \le
+    4\tau\bar n\,e^{4\tau U}.
+    \label{eq:stage3-integrated-error}
 \end{equation}
+Thus the finite-\(\tau\) error can be inserted explicitly as additional
+overlap slack.
 
-This reformulation is useful in two ways. Computationally, the grid is now in
-\(u=O(\bar n)\) rather than in the enormous input photon number
-\(m=O(\bar n/\tau)\). Conceptually, Eve's remaining freedom is exposed as the
-freedom to choose the mixing measure \(\nu\).
+Dropping the lattice restriction and allowing any probability measure
+\(\nu\) on \(\mathbb R_{\ge0}^2\) with the same moment constraints enlarges
+the feasible set. Hence the exact continuum problem, supplemented by
+Eq.~\eqref{eq:stage3-integrated-error}, is an outer relaxation of the
+physical finite-\(\tau\) problem.
 
-The second-order correlation of a mixed-Poisson source is
+\subsection{Mixed-Poisson interpretation}
+
+For one mode,
+\[
+    N\mid U=u\sim\operatorname{Poisson}(u)
+    \quad\Longrightarrow\quad
+    \mathbb E[e^{i\theta N}\mid U=u]
+    =
+    e^{-u(1-e^{i\theta})}.
+\]
+Thus the continuum model is a mixed-Poisson source:
+\[
+    U\sim\nu,
+    \qquad
+    N\mid U=u\sim\operatorname{Poisson}(u).
+\]
+A fixed coherent intensity is the special case
+\(\nu=\delta_{u_0}\).
+
+The factorial moments satisfy
+\[
+    \mathbb E[N]=\mathbb E[U],
+    \qquad
+    \mathbb E[N(N-1)]=\mathbb E[U^2],
+\]
+and therefore
 \begin{equation}
     g^{(2)}
     =
-    \frac{\mathbb E[u^2]}{\mathbb E[u]^2}
-    =
-    1+\frac{{\rm Var}(u)}{\mathbb E[u]^2}.
+    1+
+    \frac{\operatorname{Var}(U)}{\mathbb E[U]^2}.
+    \label{eq:stage3-mixed-poisson-g2}
 \end{equation}
-Mean-energy monitoring fixes only \(\mathbb E[u]\); it leaves
-\({\rm Var}(u)\) essentially unrestricted. This is the precise sense in which
-strong attenuation Poissonises each fixed component but does \emph{not}
-turn an arbitrary source into a single coherent-state-like Poisson source.
+A first-moment monitor fixes \(\mathbb E[U]\) but leaves
+\(\operatorname{Var}(U)\) unbounded.
 
-At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), optimizing the mean energy gives a
-zero-distance optimum near
+\subsection{Continuum truncation and finite-grid certification}
+
+For
 \[
-    \bar n\simeq 0.1,
+    D_U:=\{(u_A,u_B):u_A+u_B\le U\},
+    \qquad
+    \varepsilon_U:=1-\nu(D_U),
 \]
-with
+the tail must satisfy
+\begin{equation}
+    \int_{D_U}(u_A+u_B)\,d\nu
+    +
+    U\varepsilon_U
+    \le
+    \bar n.
+    \label{eq:stage3-tail-energy}
+\end{equation}
+The omitted overlap contribution has modulus at most \(\varepsilon_U\).
+
+A second distinction is important. Replacing the continuous domain \(D_U\)
+by a finite set of support points is an inner approximation and is not
+automatically a rigorous security bound. A rigorous finite-grid
+implementation may instead partition \(D_U\) into cells \(C_j\), retain the
+cell masses \(q_j=\nu(C_j)\), and add a kernel-enclosure error. Since
 \[
+    \left|
+      \frac{\partial K_0}{\partial u_X}
+    \right|
+    =
+    |a_X|\,|K_0|
+    \le
+    |a_X|
+    \le2,
+\]
+for a representative point \(u^{(j)}\in C_j\),
+\begin{equation}
+    |K_0(u)-K_0(u^{(j)})|
+    \le
+    |a_A|\,|u_A-u_A^{(j)}|
+    +
+    |a_B|\,|u_B-u_B^{(j)}|.
+    \label{eq:stage3-cell-bound}
+\end{equation}
+Adding the weighted cell error to the overlap slack makes the grid an outer
+approximation. Until that enclosure is implemented, the present continuum
+grid should be treated as a numerical approximation rather than a fully
+certified continuum bound.
+
+At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), the current scan is largest near
+\[
+    \bar n\simeq0.1,
+    \qquad
     e_{\rm ph}=0.2348,
     \qquad
-    R=6.89\times10^{-3}.
+    R=6.89\times10^{-3},
 \]
-The zero-distance rate improves, but the distance cutoff remains around
-\(2\) km.
+while the range cutoff remains around \(2\) km.
 
-\section{Physical diagnosis: the concentration attack}
+\section{Concentration attack: rigorous inequality and heuristic saturation}
+\label{sec:concentration-rigorous}
 
-The mixed-Poisson picture suggests a simple extremal strategy for Eve:
+Consider the two-point family
 \begin{equation}
-    \nu(u)
+    \nu
     =
-    (1-p)\delta(u)
-    +
-    p\,\delta(u-u_0).
+    (1-p)\delta_0+p\delta_{u_0}.
+    \label{eq:stage3-concentration-family}
 \end{equation}
-That is, Eve sends vacuum most of the time and a bright pulse with probability
-\(p\).
+Let \(q(u)\in[0,1]\) be the conditional probability of a pass announcement.
 
-The mean-energy constraint per arm gives approximately
-\begin{equation}
-    p u_0 \le \frac{\bar n}{2}.
-    \label{eq:mean-constraint}
-\end{equation}
-Since vacuum rounds do not account for the ordinary signal clicks, essentially
-all successful rounds must come from the bright component. Therefore one
-needs, parametrically,
-\begin{equation}
-    p \gtrsim P_{\rm pass}.
-\end{equation}
-Combining this with Eq.~\eqref{eq:mean-constraint},
+If vacuum gives no pass, \(q(0)=0\), then
+\[
+    P_{\rm pass}
+    =
+    p\,q(u_0)
+    \le
+    p.
+\]
+Thus \(p\ge P_{\rm pass}\). With the per-arm mean budget
+\(\mu=\bar n/2\),
+\[
+    pu_0\le\mu,
+\]
+so
 \begin{equation}
     u_0
-    \lesssim
+    \le
     \frac{\bar n/2}{P_{\rm pass}}.
-    \label{eq:u0-bound}
+    \label{eq:stage3-concentration-exact}
 \end{equation}
-
-In the weak-signal regime the honest pass probability scales roughly as
+With vacuum pass probability \(q_0>0\),
 \[
-    P_{\rm pass}\sim\eta\bar n,
+    P_{\rm pass}
+    \le
+    q_0+p(1-q_0),
 \]
-where \(\eta\) is the relevant channel transmission. Therefore
+which gives
 \begin{equation}
-    u_0\sim O(\eta^{-1}),
+    p
+    \ge
+    \frac{P_{\rm pass}-q_0}{1-q_0},
+    \qquad
+    u_0
+    \le
+    \frac{\bar n}{2}
+    \frac{1-q_0}{P_{\rm pass}-q_0},
+    \label{eq:stage3-concentration-dark}
 \end{equation}
-or, with the present per-arm convention,
-\[
-    u_0\lesssim \frac{1}{2\eta}.
-\]
+provided \(P_{\rm pass}>q_0\).
 
-This scaling is the essential point. As distance increases,
-\(P_{\rm pass}\) becomes smaller. Eve may then reduce \(p\) and increase
-\(u_0\) while keeping the same average energy. The protocol keeps only click
-rounds, so conditioning on a click selects the rare bright part of Eve's
-mixture:
-\[
-    \Pr(\text{bright}\mid\text{click})\approx 1.
-\]
+These are rigorous upper bounds for the two-point family. The claim that Eve
+can nearly attain them requires \(q(u_0)=O(1)\) for bright pulses. In that
+regime \(p\approx P_{\rm pass}\).
 
-For two distinct phase encodings, the magnitude of the strong-attenuation
-overlap is
+For the honest weak-signal model,
+\[
+    P_{\rm pass}
+    \simeq
+    c\,\eta\,\bar n
+\]
+with a convention-dependent \(c=O(1)\). Then
 \begin{equation}
-    \left|\Lambda(u_0,\Delta\phi)\right|
+    u_{0,\max}
     =
-    \exp\left[-u_0(1-\cos\Delta\phi)\right].
+    O(\eta^{-1}).
+    \label{eq:stage3-one-over-eta}
 \end{equation}
-Hence the encoded phase states become nearly orthogonal when \(u_0\) is large.
-Eve can then discriminate them increasingly well, the complementary coherence
-collapses, and the SDP can drive
-\[
-    e_{\rm ph}\rightarrow \frac12.
-\]
+The cancellation of \(\bar n\) is therefore a scaling statement derived from
+the honest pass model.
 
-This also explains why varying \(\bar n\) changes the zero-distance rate but
-barely changes the range:
-\[
-    \frac{\bar n}{P_{\rm pass}}
-    \sim
-    \frac{1}{\eta}.
-\]
-The explicit \(\bar n\) approximately cancels from the concentration bound.
-
-A better description than saying that the fibre is not degrading the signal
-is:
-\begin{quote}
-The range collapse is not primarily caused by accumulated optical noise in the
-accepted signal. Channel loss lowers the required pass probability, which
-allows Eve to concentrate a fixed mean-energy budget into increasingly rare
-and increasingly bright accepted rounds.
-\end{quote}
+For distinct phases,
+\begin{equation}
+    |K_0(u_0;\Delta\phi)|
+    =
+    e^{-u_0(1-\cos\Delta\phi)},
+    \label{eq:stage3-bright-overlap}
+\end{equation}
+so bright components become exponentially distinguishable. This explains why
+the optimized phase-error SDP moves toward \(1/2\) with distance. The logical
+step from vanishing pairwise overlap to \(e_{\rm ph}\to1/2\), however, is not
+a standalone theorem; it is an interpretation of the SDP optimum.
 
 \section{Stage 4: per-pulse energy monitoring}
+\label{sec:stage4-rigorous}
 
-The plug-and-play architecture gives a natural way to attack the concentration
-freedom directly. Before Alice and Bob apply their very large attenuation, the
-incoming pulse can be bright enough to measure accurately with a classical
-photodiode.
+Stage~4 replaces a first-moment constraint by information about the support
+of the delivered-energy distribution on accepted rounds.
 
-Two possibilities are:
-\begin{enumerate}
-    \item reject any pulse whose measured energy lies outside an allowed
-    interval;
-    \item use the measured input energy to feed forward to the attenuation, so
-    that every accepted pulse has nearly fixed delivered energy.
-\end{enumerate}
+\subsection{Ideal monitor as a quantum instrument}
 
-In the continuum SDP this changes the source constraint from a first-moment
-condition to a support condition,
+Let the trusted energy monitor be a quantum instrument
+\(\{\mathcal M_y\}_y\) acting before the secret basis and bit choices. For an
+acceptance set \(W\), define
+\[
+    \mathcal M_{\rm acc}
+    :=
+    \sum_{y\in W}\mathcal M_y,
+    \qquad
+    P_{\rm acc}
+    =
+    \operatorname{Tr}\mathcal M_{\rm acc}(\rho).
+\]
+Conditioned on acceptance,
 \begin{equation}
-    u\in
-    \left[
-        u_\star(1-w),
-        u_\star(1+w)
-    \right]
+    \rho_{\rm acc}
+    =
+    \frac{\mathcal M_{\rm acc}(\rho)}
+         {P_{\rm acc}}.
+    \label{eq:stage4-conditioned-state}
 \end{equation}
-for every accepted round.
+If acceptance is decided before, and independently of, the later basis and
+bit choices, the security analysis may be conditioned on this event. The key
+rate per accepted round is computed from \(\rho_{\rm acc}\); the rate per
+original incoming pulse must be multiplied by \(P_{\rm acc}\).
+
+For an ideal photon-number-diagonal monitor with
+\[
+    \Pi_W
+    =
+    \sum_{m:\,\tau m\in[u_-,u_+]}
+      |m\rangle\!\langle m|,
+\]
+the accepted Fock distribution satisfies
+\[
+    p_m^{\rm acc}=0
+    \quad\text{for}\quad
+    \tau m\notin[u_-,u_+],
+\]
+so
+\begin{equation}
+    \operatorname{supp}\nu_{\rm acc}
+    \subseteq
+    [u_-,u_+].
+    \label{eq:stage4-support}
+\end{equation}
+
+\subsection{Consequences of a support bound}
+
+Take
+\[
+    u_\pm=u_\star(1\pm w),
+    \qquad 0\le w<1.
+\]
+The concentration attack can no longer place accepted weight above
+\begin{equation}
+    U_{\rm accepted}
+    \le
+    u_\star(1+w),
+    \label{eq:stage4-brightness-cap}
+\end{equation}
+so the \(1/\eta\) growth in Stage~3 is cut off by a distance-independent
+bound.
+
+Popoviciu's inequality gives
+\begin{equation}
+    \operatorname{Var}(U)
+    \le
+    \frac{(u_+-u_-)^2}{4}
+    =
+    w^2u_\star^2.
+    \label{eq:stage4-popoviciu}
+\end{equation}
+Since \(\mathbb E[U]\ge u_\star(1-w)\),
+\begin{equation}
+    g^{(2)}
+    \le
+    1+\frac{w^2}{(1-w)^2}.
+    \label{eq:stage4-g2-general}
+\end{equation}
+If feed-forward attenuation or calibration additionally fixes
+\(\mathbb E[U]=u_\star\), then
+\begin{equation}
+    g^{(2)}
+    \le
+    1+w^2.
+    \label{eq:stage4-g2-fixedmean}
+\end{equation}
+
+There is also a direct overlap-stability estimate. Define
+\[
+    f_\theta(u)
+    =
+    e^{-u(1-e^{i\theta})}.
+\]
+Since
+\[
+    |f_\theta'(u)|
+    \le
+    |1-e^{i\theta}|
+    \le2,
+\]
+any accepted distribution supported in
+\([u_\star(1-w),u_\star(1+w)]\) satisfies
+\begin{equation}
+    \left|
+      \mathbb E[f_\theta(U)]
+      -
+      f_\theta(u_\star)
+    \right|
+    \le
+    2wu_\star.
+    \label{eq:stage4-overlap-stability}
+\end{equation}
+For two arms,
+\begin{equation}
+    |\Lambda_\nu-\Lambda_{\delta_{u_\star}}|
+    \le
+    |1-e^{i\Delta\phi_A}|\,w u_{\star,A}
+    +
+    |1-e^{i\Delta\phi_B}|\,w u_{\star,B}.
+    \label{eq:stage4-twoarm-stability}
+\end{equation}
+Thus the energy window quantitatively confines the Gram overlaps to a
+neighbourhood of the fixed-energy kernel.
+
+\subsection{Finite-resolution monitor}
+
+A real monitor can falsely accept an out-of-window pulse. Define
+\begin{equation}
+    \epsilon_{\rm mon}
+    :=
+    \Pr(U\notin[u_-,u_+]\mid\mathrm{acc}).
+    \label{eq:stage4-monitor-leakage}
+\end{equation}
+Then
+\[
+    \nu_{\rm acc}
+    =
+    (1-\epsilon_{\rm mon})\nu_{\rm in}
+    +
+    \epsilon_{\rm mon}\nu_{\rm out}.
+\]
+Since \(|K_0|\le1\), the unknown out-of-window component contributes at most
+\(\epsilon_{\rm mon}\) in modulus to every overlap. The SDP can therefore
+retain an explicit monitor-tail variable and add overlap and energy slack,
+in direct analogy with Stages~1 and~3.
+
+This is the missing physical step in the present calculation: the numerical
+window currently treats Eq.~\eqref{eq:stage4-support} as exact. A physical
+security claim requires deriving \(\epsilon_{\rm mon}\) from a trusted
+detector model and carrying it through the conditioning.
+
+\subsection{Current numerical values}
 
 At
 \[
@@ -482,7 +1066,7 @@ At
     \qquad
     \tau=10^{-6},
 \]
-the current results are
+the current continuum-grid calculation gives
 \begin{center}
 \begin{tabular}{lcc}
 \toprule
@@ -495,9 +1079,6 @@ exact per-pulse energy & 0.1064 & \(3.11\times10^{-2}\) \\
 \bottomrule
 \end{tabular}
 \end{center}
-
-Thus even a \(\pm20\%\) window gives about a \(4.4\times\) improvement in
-the zero-distance rate.
 
 For the same \(\pm20\%\) window,
 \begin{center}
@@ -513,8 +1094,20 @@ distance & \(e_{\rm ph}\) & \(R\) \\
 \bottomrule
 \end{tabular}
 \end{center}
-so the current secure-range cutoff moves from about \(2\) km to somewhere
-between \(20\) and \(40\) km.
+
+\begin{remark}[Rigour status of Stages 1--4]
+The exact overlap identities, Stage~1 tail relaxation, attenuation kernel,
+covariance/common-purification construction, finite-\(\tau\) continuum error,
+mixed-Poisson moment identities, and ideal-monitor support implications above
+have explicit derivations. Three ingredients are not yet certified:
+(i) the use of the published Eq.~(A7) objective for arbitrary untrusted photon
+statistics; (ii) the replacement of the continuum by a finite numerical grid
+unless the cell-enclosure slack in Eq.~\eqref{eq:stage3-cell-bound} is
+implemented; and (iii) the conversion of a real finite-resolution energy
+monitor into a quantitative \(\epsilon_{\rm mon}\) bound. The current rate
+and range numbers should be read with those qualifications.
+\end{remark}
+
 
 \section{Open points}
 
