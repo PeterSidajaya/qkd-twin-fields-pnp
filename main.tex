@@ -1,4 +1,237 @@
 % ****** Start of file apssamp.tex ******
+% === PROJECT STATUS NOTES: QKD TWIN-FIELD PNP ===
+% Last updated: 2026-10-01
+%
+% Working notes only; every line in this block is commented out so the
+% REVTeX template below compiles unchanged.
+%
+% PROJECT IN ONE SENTENCE
+% -----------------------
+% The guessing-probability/min-entropy route has been abandoned; the current
+% route is a phase-error SDP. Mean-energy monitoring alone leaves Eve a
+% concentration attack (mostly vacuum + rare bright pulses), while per-pulse
+% energy monitoring appears to remove the relevant freedom and extends the
+% numerical secure range from about 2 km to somewhere between 20 and 40 km.
+%
+% PROTOCOL / SECURITY MODEL
+% -------------------------
+% - Plug-and-play phase-matching QKD: the untrusted central node supplies the
+%   light; Alice and Bob phase-modulate it and send it back to the node.
+% - Eve therefore controls both source and measurement. Alice and Bob control
+%   their modulators and their energy monitoring / attenuation.
+% - Encoding uses M bases with phi_m = m*pi/M and an additional bit shift b*pi.
+% - In the current phase-error formulation, basis m=0 is the key basis and the
+%   other M-1 bases are test bases.
+% - Continuous phase randomisation is not assumed. Since the modulation is
+%   diagonal in Fock number, signal overlaps depend only on the Fock-diagonal
+%   photon-number probabilities of the incoming source.
+%
+% ROUTE 1: GUESSING PROBABILITY -- ABANDONED
+% -------------------------------------------
+% The guessing-probability SDP was corrected in two important ways:
+% (i) the photon-number tail/energy constraint was repaired so that excluded
+%     probability mass is charged soundly to the combined energy budget, not
+%     separately to each arm;
+% (ii) Eve's final bit guess was allowed to depend on the publicly revealed
+%      basis, while her earlier announcement remains basis-independent.
+%
+% With these corrections the SDP gives, at nbar=1e-2, L=0, M=4,
+%     P_guess = 0.9336,
+% whereas positive key would require
+%     P_guess < 0.9145.
+% Thus this min-entropy route gives zero key already at zero distance. The
+% phase-error route gives positive rate in the same regime, so the failure is
+% interpreted as looseness of the min-entropy bound, not as evidence that the
+% protocol itself is insecure.
+%
+% ROUTE 2: PHASE-ERROR SDP -- CURRENT MAIN ROUTE
+% -----------------------------------------------
+% The key-rate expression used is
+%     R = P_pass [1 - h2(e_ph) - f_ec h2(e_bit)].
+% With e_bit=0.015 and f_ec=1.15, positive rate requires approximately
+%     e_ph < 0.292.
+%
+% The objective follows Appendix A / Eq. (A7) of arXiv:1901.01942 and is an
+% affine function of off-diagonal Gram-matrix entries of Eve's residual states
+% under the same announcement. The test bases are essential: without them
+% the complementary-basis phase error is unconstrained and the SDP returns
+% e_ph=1/2.
+%
+% VALIDATION
+% ----------
+% - The implementation reproduces Fig. 6(a) of arXiv:1901.01942 for trusted
+%   phase-matching QKD with finite test states. The reproduced PLOB crossing is
+%   about 48 dB versus roughly 50 dB in the published figure.
+% - Independently, when the plug-and-play source is artificially pinned to the
+%   same coherent distribution, the two implementations agree to about five
+%   digits. This checks the overlap construction, truncation, loss convention,
+%   and Eq. (A7) indexing.
+%
+% STAGE 1: BARE UNTRUSTED SOURCE, MEAN ENERGY ONLY
+% ------------------------------------------------
+% At nbar=1e-2, L=0, Nmax=7:
+%     M=2 (2 test states): e_ph=0.5000, R=0
+%     M=3 (4 test states): e_ph=0.2865
+%     M=4 (6 test states): e_ph=0.2573
+%     M=5 (8 test states): e_ph=0.2572
+% Thus the test bases do constrain the phase structure, and the improvement
+% saturates quickly around M=4. Nevertheless the rate disappears by about
+% 2 km.
+%
+% Eve's optimum is highly non-Poissonian: she suppresses single-photon sectors
+% and enhances two-photon sectors. A representative optimum has g^(2)~36
+% versus g^(2)=1 for a coherent source. The core problem is that a first
+% moment (mean energy) barely constrains the photon-number distribution.
+%
+% STAGE 2: PHYSICAL ATTENUATION ON A FOCK GRID
+% ---------------------------------------------
+% Alice and Bob attenuate the returning light by transmissivity t^2.
+%
+% Important point: the mixed-state obstruction in Section V of
+% arXiv:2012.11104 does NOT directly kill the Gram construction here.
+% In the general channel-discrimination setting, loss makes the received states
+% mixed and their eigenbasis is not fixed, so the original pure-state Gram SDP
+% is unavailable. Here, however, pure loss is phase covariant, so every
+% encoded output is a phase rotation of one common mixed state:
+%     rho_s = W_s rho_0 W_s^dagger.
+% We may trace out the trusted reflected port first and then choose one common
+% purification |chi> of rho_0, giving
+%     |chi_s> = (W_s tensor I)|chi>.
+% This restores a consistent pure-state Gram representation. Keeping the
+% physical reflected port in the purification would be wrong for our purpose:
+% the beamsplitter is unitary and the global overlaps would then remain exactly
+% the input overlaps, so attenuation would buy nothing.
+%
+% For an input Fock state m in one mode the transmitted overlap is exactly
+%     (1 - t^2 + t^2 e^{i Delta phi})^m.
+% This restores a decay factor in the overlap and greatly improves the
+% truncation bound.
+%
+% Numerically, at nbar=1e-2, L=0, M=4, Nin=60:
+%     t^2=1.0 -> e_ph=0.2567
+%     t^2=0.5 -> e_ph=0.2293
+%     t^2=0.1 -> e_ph=0.2094
+% but realistic plug-and-play attenuation (60--100 dB) would require an
+% impossible Fock cutoff scaling like 1/t^2. Also g^(2) is invariant under
+% loss, so attenuation rescales the attack rather than removing it.
+%
+% STAGE 3: CONTINUUM / STRONG-ATTENUATION REFORMULATION
+% ------------------------------------------------------
+% Define delivered optical energy
+%     u = t^2 m.
+% Then
+%     (1 - t^2 + t^2 e^{i Delta phi})^{u/t^2}
+%        -> exp[-u(1-e^{i Delta phi})]
+% as t^2 -> 0.
+% This is the characteristic function of a Poisson random variable with mean u.
+%
+% Therefore a heavily attenuated fixed-energy component becomes Poissonian,
+% but an arbitrary untrusted source becomes a MIXTURE of Poisson distributions:
+%     N | u ~ Poisson(u),     u ~ nu.
+% A coherent source is the special case nu = delta(u-u0). Eve's remaining
+% freedom is precisely the freedom to spread the mixing measure nu.
+%
+% In the two-arm problem the overlap kernel is
+%     Lambda = integral dnu(u_A,u_B)
+%              exp[-u_A(1-e^{i Delta phi_A})
+%                  -u_B(1-e^{i Delta phi_B})].
+% The continuum grid is now set by nbar rather than by 1/t^2, so realistic
+% attenuation t^2~1e-6 can be handled directly.
+%
+% The mixed-Poisson picture also exposes why attenuation alone is insufficient:
+%     g^(2) = E[u^2]/E[u]^2
+%           = 1 + Var(u)/E[u]^2.
+% Mean-energy monitoring fixes only E[u], not Var(u), and g^(2) is invariant
+% under an overall rescaling of u.
+%
+% At t^2=1e-6, M=4, L=0, the rate is optimised near nbar~0.1:
+%     e_ph=0.2348, R=6.89e-3.
+% Optimising nbar changes the rate appreciably but the distance cutoff remains
+% around 2 km.
+%
+% PHYSICAL DIAGNOSIS: CONCENTRATION ATTACK
+% ----------------------------------------
+% Eve can use a two-point-like mixing distribution:
+%     mostly vacuum + a small probability p of a bright pulse u0.
+% The mean-energy constraint gives
+%     p u0 <= nbar/2.
+% Since essentially all clicks must come from the bright component, one needs
+% approximately
+%     p >= P_pass.
+% Hence
+%     u0 <= (nbar/2)/P_pass.
+% In the weak-signal regime P_pass ~ eta*nbar, so
+%     u0 ~ O(1/eta)   (approximately <= 1/(2 eta) in the present convention).
+%
+% As distance increases, P_pass becomes smaller. Eve can therefore make the
+% bright component rarer and proportionally brighter while keeping the same
+% average energy. Conditioning on a click selects those rare bright rounds,
+% whose phase states become increasingly distinguishable:
+%     |overlap| = exp[-u0(1-cos Delta phi)] -> 0 as u0 grows.
+% The SDP can then drive e_ph -> 1/2 and the key rate dies.
+%
+% This is why changing nbar changes the rate but barely changes the range:
+%     nbar/P_pass ~ 1/eta.
+% The nbar dependence approximately cancels in the concentration bound.
+%
+% Better wording than "the fibre is not degrading the signal":
+% The range collapse is not primarily caused by accumulated optical noise in
+% the accepted signal. Channel loss lowers the required pass probability,
+% which lets Eve concentrate a fixed mean-energy budget into increasingly rare
+% and increasingly bright accepted rounds.
+%
+% STAGE 4: PER-PULSE ENERGY MONITORING -- PROMISING FIX
+% -----------------------------------------------------
+% Plug-and-play gives Alice and Bob a practical way to remove the concentration
+% freedom: the incoming pulses are bright before their 60--100 dB attenuation,
+% so a classical photodiode can estimate each pulse energy accurately.
+% Alice can veto pulses outside an energy window or feed the measured energy
+% forward to her attenuator so that accepted pulses have nearly fixed delivered
+% energy.
+%
+% In the SDP, instead of only fixing the first moment of nu, impose support
+%     u in [u0(1-w), u0(1+w)]
+% on every accepted pulse.
+%
+% At nbar=0.1, L=0, M=4, t^2=1e-6:
+%     mean only:     e_ph=0.2348, R=6.89e-3
+%     exact energy:  e_ph=0.1064, R=3.11e-2
+%     +/-20% window: e_ph=0.1099, R=3.02e-2
+%     +/-50% window: e_ph=0.1263, R=2.64e-2
+% A +/-20% window therefore gives about a 4.4x rate improvement at zero
+% distance.
+%
+% With a +/-20% window:
+%     L=0 km:  e_ph=0.1099, R=3.02e-2
+%     L=5 km:  e_ph=0.1440, R=1.80e-2
+%     L=10 km: e_ph=0.1778, R=1.02e-2
+%     L=20 km: e_ph=0.2473, R=2.12e-3
+%     L=40 km: e_ph=0.5000, R=0
+% so the present cutoff moves from about 2 km to somewhere between 20 and
+% 40 km.
+%
+% CURRENT CAVEATS / OPEN ITEMS
+% ----------------------------
+% 1. Highest priority: make the per-pulse energy-veto / post-selection
+%    argument rigorous. The numerical SDP assumes that, conditioned on
+%    acceptance, nu is supported inside the chosen energy window.
+% 2. Re-derive / verify Eq. (A7) for an arbitrary source with unknown photon
+%    statistics. The published derivation is written for coherent states,
+%    although structurally it appears to depend only on the two-state encoding
+%    and Eve's post-measurement states.
+% 3. Continuum/window runs currently report "optimal_inaccurate" under
+%    CLARABEL; rerun publication-quality scans with MOSEK.
+% 4. Tighten the QBER constraints from one average over bases to separate
+%    per-basis constraints, as allowed by the original Gram-matrix formalism.
+% 5. After concentration is removed, revisit the optimal number of test bases M;
+%    the earlier saturation near M=4 was measured in a concentration-dominated
+%    regime and may change.
+%
+% Bottom line: the conceptual attack mechanism is now identified. The project
+% is in the stage of turning the per-pulse-monitoring numerical result into a
+% rigorous security claim and publication-quality optimisation.
+% === END PROJECT STATUS NOTES ===
+
 %
 %   This file is part of the APS files in the REVTeX 4.2 distribution.
 %   Version 4.2a of REVTeX, December 2014
