@@ -641,17 +641,58 @@ so the test bases constrain the phase structure, but the distance remains
 limited by source statistics. A representative optimizer has
 \(g^{(2)}\sim36\).
 
-\section{Stage 2: physical attenuation}
+\section{Stage 2: trusted attenuation as a rigorous Gram-matrix relaxation}
 \label{sec:stage2-rigorous}
 
-Let \(\mathcal L_\tau\) denote the trusted pure-loss channel of transmissivity
+Let \(\mathcal L_\tau\) denote a trusted pure-loss channel of transmissivity
 \[
     \tau=t^2.
 \]
-For simplicity the same \(\tau\) is written for both arms; the formulas
-generalize immediately to \(\tau_A\ne\tau_B\).
+For simplicity the same \(\tau\) is written for both arms; all formulas extend
+immediately to \(\tau_A\neq\tau_B\).
 
-\subsection{Phase covariance and the common mixed-state orbit}
+The purpose of this section is to make precise what trusted attenuation buys.
+There are two logically distinct gains:
+
+\begin{enumerate}
+    \item \emph{Structural gain.}  Because pure loss is phase covariant, all
+    post-loss encoded states lie on a common unitary orbit.  This lets us
+    construct one consistent pure-state family and hence recover a Gram-matrix
+    description even though the physical states returned to Eve are mixed.
+
+    \item \emph{Constraint gain.}  The post-loss photon statistics are not free:
+    they must lie in the image of binomial thinning.  Equivalently, the overlap
+    kernel changes from a pure phase factor to
+    \((1-\tau+\tau e^{i\Delta\phi})^m\).  This is the actual source restriction
+    introduced by the trusted attenuator.
+\end{enumerate}
+
+The first point restores tractability; the second is what can tighten the
+security bound.
+
+\subsection{Physical model before and after the attenuator}
+
+Let Eve prepare an arbitrary pure state
+\[
+    |\Psi\rangle_{ABE_0},
+\]
+where \(A,B\) are the optical systems entering Alice's and Bob's laboratories
+and \(E_0\) is retained by Eve.  Alice and Bob encode signal label \(s\) by
+\[
+    U_s
+    =
+    e^{i\phi_A^s\hat n_A+i\phi_B^s\hat n_B}.
+\]
+The actual physical order is
+\[
+    |\Psi\rangle
+    \xrightarrow{U_s}
+    (U_s\otimes I_{E_0})|\Psi\rangle
+    \xrightarrow{\mathcal L_\tau^A\otimes\mathcal L_\tau^B}
+    \rho_s^{TE_0},
+\]
+where \(T=(T_A,T_B)\) denotes the transmitted optical modes and the trusted
+reflected ports have been discarded.
 
 Pure loss is phase covariant:
 \begin{equation}
@@ -665,11 +706,20 @@ Pure loss is phase covariant:
     e^{-i\theta\hat n}.
     \label{eq:stage2-covariance}
 \end{equation}
-This follows directly from the beamsplitter dilation of pure loss.
-
-Let \(T_A,T_B\) be the transmitted modes and retain Eve's original purifying
-system \(E_0\) as a spectator. By covariance, the family arriving back at
-the untrusted node has the form
+Hence we may equivalently regard loss as occurring before the phase rotation.
+Define
+\begin{equation}
+    \rho_0^{TE_0}
+    :=
+    \left(
+      \mathcal L_\tau^A\otimes\mathcal L_\tau^B\otimes I_{E_0}
+    \right)
+    \left(
+      |\Psi\rangle\!\langle\Psi|
+    \right).
+    \label{eq:stage2-base-mixed}
+\end{equation}
+Then every encoded state returned to the untrusted node satisfies
 \begin{equation}
     \rho_s^{TE_0}
     =
@@ -678,153 +728,381 @@ the untrusted node has the form
     W_s
     =
     e^{i\phi_A^s\hat n_{T_A}+i\phi_B^s\hat n_{T_B}}
-    \otimes I_{E_0},
+    \otimes I_{E_0}.
     \label{eq:stage2-unitary-orbit}
 \end{equation}
-for one state \(\rho_0^{TE_0}\) independent of \(s\).
 
-\begin{proposition}[Common purification]
-Choose a purification \(\lvert\chi\rangle_{TE_0R}\) of
-\(\rho_0^{TE_0}\) and define
+Thus the family is not an arbitrary collection of mixed states: it is one
+mixed state acted on by a known representation of the phase group.
+
+\subsection{What the common orbit buys: a consistent purification}
+
+Choose one purification
 \[
-    \lvert\chi_s\rangle
-    =
-    (W_s\otimes I_R)\lvert\chi\rangle.
+    |\chi_0\rangle_{TE_0R}
 \]
-Then
+of \(\rho_0^{TE_0}\), where \(R\) is a fictitious reference, and define
 \begin{equation}
-    \langle\chi_s\vert\chi_t\rangle
-    =
-    \operatorname{Tr}
+    |\chi_s\rangle
+    :=
+    (W_s\otimes I_R)|\chi_0\rangle.
+    \label{eq:stage2-common-purification}
+\end{equation}
+Then \(|\chi_s\rangle\) purifies \(\rho_s^{TE_0}\) for every \(s\).
+
+\begin{proposition}[Purified overlap after trusted loss]
+The purified family obeys
+\begin{align}
+    \langle\chi_s|\chi_t\rangle
+    &=
+    \operatorname{Tr}_{TE_0}
     \left[
       \rho_0^{TE_0}W_s^\dagger W_t
     \right]
-    =
+    \nonumber\\
+    &=
     \operatorname{Tr}_{T}
     \left[
-      \rho_0^{T}
+      \rho_{0,T}\,
       e^{i\Delta\phi_A\hat n_{T_A}
         +i\Delta\phi_B\hat n_{T_B}}
-    \right].
+    \right],
     \label{eq:stage2-purified-overlap}
-\end{equation}
+\end{align}
+where
+\[
+    \rho_{0,T}
+    :=
+    \operatorname{Tr}_{E_0}\rho_0^{TE_0}.
+\]
 \end{proposition}
 
 \begin{proof}
-Use
-\(\langle\chi|(X\otimes I)|\chi\rangle=\operatorname{Tr}(\rho_0X)\).
-The second equality follows because \(W_s^\dagger W_t\) acts trivially on
-\(E_0\).
+Use the purification identity
+\[
+    \langle\chi_0|(X\otimes I_R)|\chi_0\rangle
+    =
+    \operatorname{Tr}(\rho_0X).
+\]
+Since \(W_s^\dagger W_t\) acts trivially on \(E_0\), the partial trace over
+\(E_0\) gives the second line.
 \end{proof}
 
-This is the precise reason the mixed-state obstruction discussed in
-Section~V of arXiv:2012.11104 does not directly apply here. Here the entire
-mixed family is a known unitary orbit of one common state.
+The notation \(\rho_{0,T}\) is deliberately used instead of a superscript
+\(T\): no matrix transpose is involved.
 
-The auxiliary system \(R\) is a mathematical purification, not a physical
-system available to Eve. Any physical attack on \(TE_0\) extends to
-\(V\otimes I_R\). If the SDP optimizes over an arbitrary PSD Gram matrix
-without enforcing that tensor-product restriction, it only gives Eve more
-power. The resulting optimum is therefore an upper bound on the physical
-phase error.
+This is the precise point at which our setting differs from the generic lossy
+channel-discrimination setting of arXiv:2012.11104.  There, a pure input can
+become a family of mixed states with no common known eigenbasis, so the
+original pure-state Gram construction no longer applies directly.  Here,
+phase covariance supplies the extra unitary-orbit structure needed to choose a
+single compatible purification for all signal labels.
 
-\begin{remark}[Why keeping the physical reflected port is the wrong
-purification for this purpose]
-If the reflected port of the attenuator is retained explicitly, the total
-beamsplitter evolution is unitary and independent of \(s\), so the global
-overlaps are exactly the pre-loss overlaps. The useful construction is to
-trace out the trusted loss port first and then purify the reduced transmitted
-state.
+\subsection{From the purified family to the QKD Gram matrix}
+
+Let the untrusted node implement an arbitrary physical instrument on \(TE_0\)
+with Kraus operators \(\{K_z\}_z\), where \(z\) labels the public
+announcement and
+\[
+    \sum_zK_z^\dagger K_z=I_{TE_0}.
+\]
+On the purified system define the sub-normalized residual vectors
+\begin{equation}
+    |e_s^z\rangle
+    :=
+    (K_z\otimes I_R)|\chi_s\rangle.
+    \label{eq:stage2-residual-vectors}
+\end{equation}
+Then
+\[
+    \|e_s^z\|^2=P(z|s),
+\]
+and
+\begin{align}
+    \sum_z\langle e_s^z|e_t^z\rangle
+    &=
+    \sum_z
+    \langle\chi_s|
+    (K_z^\dagger K_z\otimes I_R)
+    |\chi_t\rangle
+    \nonumber\\
+    &=
+    \langle\chi_s|\chi_t\rangle.
+    \label{eq:stage2-gram-conservation}
+\end{align}
+
+Therefore the same Gram-matrix structure used in Stage~1 survives:
+\begin{equation}
+    \sum_z G[(z,s),(z,t)]
+    =
+    \Lambda^{(\tau)}_{st},
+    \label{eq:stage2-gram-overlap}
+\end{equation}
+where
+\[
+    \Lambda^{(\tau)}_{st}
+    :=
+    \langle\chi_s|\chi_t\rangle.
+\]
+
+There is one deliberate relaxation.  In the physical model, all residual
+vectors must arise from one common instrument \(K_z\otimes I_R\), with the
+fictitious reference \(R\) untouched.  In the SDP we enforce only positivity
+of the Gram matrix together with
+Eq.~\eqref{eq:stage2-gram-overlap} and the observed diagonal entries.  This
+can admit Gram matrices that do not arise from any physical instrument acting
+trivially on \(R\).  Hence
+\[
+    \mathcal F_{\rm physical}
+    \subseteq
+    \mathcal F_{\rm Gram},
+\]
+and, since the SDP maximizes \(e_{\rm ph}\),
+\begin{equation}
+    e_{\rm ph}^{\rm physical}
+    \le
+    e_{\rm ph}^{\rm Gram}.
+    \label{eq:stage2-outer-direction}
+\end{equation}
+Thus the common-purification construction is used as a conservative
+\emph{outer relaxation}; it need not reproduce Eve's exact physical
+information.
+
+\begin{remark}[Why keeping the physical reflected port is not useful here]
+If the trusted reflected loss ports are retained, the beamsplitter dilation of
+loss is unitary and independent of \(s\).  The global overlaps are then just
+the pre-loss overlaps, so attenuation produces no new overlap constraint.
+The useful construction is to trace out the trusted loss ports first, obtaining
+the physical mixed transmitted state, and only then introduce a mathematical
+purification of that reduced state.
 \end{remark}
 
-\subsection{Exact overlap after thinning}
+\subsection{Exact binomial-thinning kernel}
 
-For one incoming Fock component \(\lvert m\rangle\),
+Let
 \[
-    N\mid m\sim\operatorname{Binomial}(m,\tau).
+    p_{m_A,m_B}
+    =
+    \langle m_A,m_B|\rho_{AB}|m_A,m_B\rangle
 \]
-Therefore
+be the incoming joint photon-number distribution before trusted attenuation.
+For one input Fock component \(m\),
+\[
+    N|m\sim\operatorname{Binomial}(m,\tau).
+\]
+Consequently
 \begin{align}
-    \mathbb E[e^{i\Delta\phi N}\mid m]
+    \mathbb E[e^{i\Delta\phi N}|m]
     &=
     \sum_{n=0}^{m}
-      \binom{m}{n}
+      \binom mn
       \tau^n(1-\tau)^{m-n}
-      e^{i\Delta\phi n} \\
+      e^{i\Delta\phi n}
+    \nonumber\\
     &=
     \left(
       1-\tau+\tau e^{i\Delta\phi}
     \right)^m.
     \label{eq:stage2-binomial-kernel}
 \end{align}
-For a two-arm input distribution \(p_{m_A,m_B}\),
+Define
+\[
+    z_X^{st}
+    :=
+    1-\tau+\tau e^{i\Delta\phi_X^{st}}
+    =
+    1-\tau(1-e^{i\Delta\phi_X^{st}}).
+\]
+Then the exact purified overlap is
 \begin{equation}
+    \boxed{
     \Lambda^{(\tau)}_{st}
     =
-    \sum_{m_A,m_B}
-    p_{m_A,m_B}
-    z_A^{m_A}z_B^{m_B},
-    \qquad
-    z_X
-    :=
-    1-\tau+\tau e^{i\Delta\phi_X}.
+    \sum_{m_A,m_B\ge0}
+      p_{m_A,m_B}
+      (z_A^{st})^{m_A}
+      (z_B^{st})^{m_B}.
+    }
     \label{eq:stage2-exact-kernel}
 \end{equation}
 
-If the input is truncated to
-\(S_N=\{m_A+m_B\le N\}\), define
-\[
-    \rho_{st}:=\max\{|z_A|,|z_B|\}.
-\]
-Then
+Equivalently, if \(q_{n_A,n_B}\) denotes the transmitted photon-number
+distribution, then
 \begin{equation}
-    \left|
-      \sum_{S_N^c}
-      p_{m_A,m_B}z_A^{m_A}z_B^{m_B}
-    \right|
-    \le
-    \varepsilon_N\,\rho_{st}^{N+1}.
-    \label{eq:stage2-decaying-tail}
-\end{equation}
-When both relevant phase differences are nonzero,
-\(|z_X|<1\) and this can be exponentially smaller than the bare tail
-\(\varepsilon_N\). If one arm has \(\Delta\phi_X=0\), then
-\(|z_X|=1\), so this uniform bound may revert to \(\varepsilon_N\).
-
-\subsection{Loss does not control \(g^{(2)}\)}
-
-For pure loss,
-\[
-    \mathbb E[N_{\rm out}]
+    q_{n_A,n_B}
     =
-    \tau\mathbb E[N_{\rm in}],
+    \sum_{\substack{m_A\ge n_A\\m_B\ge n_B}}
+      p_{m_A,m_B}
+      B_\tau(n_A|m_A)
+      B_\tau(n_B|m_B),
+    \label{eq:stage2-thinning-map}
+\end{equation}
+where
+\[
+    B_\tau(n|m)
+    =
+    \binom mn\tau^n(1-\tau)^{m-n},
 \]
 and
 \[
-    \mathbb E[N_{\rm out}(N_{\rm out}-1)]
+    \Lambda^{(\tau)}_{st}
     =
-    \tau^2
-    \mathbb E[N_{\rm in}(N_{\rm in}-1)].
+    \sum_{n_A,n_B}
+      q_{n_A,n_B}
+      e^{i\Delta\phi_A^{st}n_A+i\Delta\phi_B^{st}n_B}.
 \]
-Therefore
+Equation~\eqref{eq:stage2-exact-kernel} simply eliminates \(q\) analytically.
+
+This makes clear what trusted attenuation constrains:
+\[
+    q=B_\tau p.
+\]
+The transmitted distribution is not an arbitrary distribution with the right
+mean; it must be obtainable by binomial thinning of some admissible incoming
+distribution.
+
+\subsection{Exact infinite-dimensional Stage-2 optimization}
+
+Before any photon-number cutoff, the trusted-attenuation problem can be
+written as
 \begin{equation}
-    g_{\rm out}^{(2)}
+\begin{aligned}
+    \text{maximize}_{G,p}\quad&
+    e_{\rm ph}(G)
+    \\
+    \text{subject to}\quad&
+    G\succeq0,
+    \\
+    &p_{m_A,m_B}\ge0,
+    \qquad
+    \sum_{m_A,m_B}p_{m_A,m_B}=1,
+    \\
+    &\sum_zG[(z,s),(z,t)]
     =
-    g_{\rm in}^{(2)}.
-    \label{eq:stage2-g2-invariance}
+    \sum_{m_A,m_B}
+      p_{m_A,m_B}
+      (z_A^{st})^{m_A}(z_B^{st})^{m_B}
+    \quad\forall s,t,
+    \\
+    &G[(z,s),(z,s)]
+    =
+    P(z|s)
+    \quad\forall z,s,
+    \\
+    &\sum_{m_A,m_B}
+      m_Ap_{m_A,m_B}
+    \le
+    \frac{\bar n}{2\tau},
+    \\
+    &\sum_{m_A,m_B}
+      m_Bp_{m_A,m_B}
+    \le
+    \frac{\bar n}{2\tau}.
+\end{aligned}
+    \label{eq:stage2-exact-optimization}
 \end{equation}
-Attenuation reduces the scale of the pulse but not its normalized bunching.
+Here \(e_{\rm ph}(G)\) is the affine A7 functional derived in
+Section~\ref{sec:a7-general}.
 
-If the desired delivered mean is \(\mu\), then the incoming mean before
-attenuation is \(\mu/\tau\), so a direct Fock representation necessarily
-moves to photon numbers of order \(1/\tau\). This is why realistic
-\(\tau\sim10^{-6}\) is computationally inaccessible on the original grid.
+All constraints are affine in \(G\) and \(p\), except for the PSD constraint
+\(G\succeq0\).  Thus the only obstruction is the infinitely many
+photon-number variables.
 
-The current numerical Fock-grid results at
+\subsection{Rigorous input truncation}
+
+Let
+\[
+    S_N=\{(m_A,m_B):m_A+m_B\le N\},
+\qquad
+    \varepsilon_N
+    =
+    1-\sum_{S_N}p_{m_A,m_B}.
+\]
+The separate per-arm energy constraints safely relax to
+\begin{equation}
+    \sum_{S_N}m_Ap_{m_A,m_B}
+    \le\frac{\bar n}{2\tau},
+    \qquad
+    \sum_{S_N}m_Bp_{m_A,m_B}
+    \le\frac{\bar n}{2\tau}.
+    \label{eq:stage2-perarm-energy}
+\end{equation}
+The tail cannot be charged separately to each arm because, e.g.,
+\((m_A,m_B)=(0,N+1)\) lies outside \(S_N\).  For the total energy, however,
+\(m_A+m_B\ge N+1\) on \(S_N^c\), so
+\begin{equation}
+    \sum_{S_N}
+      (m_A+m_B)p_{m_A,m_B}
+    +(N+1)\varepsilon_N
+    \le
+    \frac{\bar n}{\tau}.
+    \label{eq:stage2-combined-energy}
+\end{equation}
+
+For each state pair define
+\[
+    \rho_{st}
+    :=
+    \max\{|z_A^{st}|,|z_B^{st}|\}.
+\]
+Then the omitted overlap satisfies
+\begin{align}
+    \left|
+      \sum_{S_N^c}
+      p_{m_A,m_B}
+      (z_A^{st})^{m_A}(z_B^{st})^{m_B}
+    \right|
+    &\le
+    \sum_{S_N^c}
+      p_{m_A,m_B}
+      \rho_{st}^{m_A+m_B}
+    \nonumber\\
+    &\le
+    \varepsilon_N\rho_{st}^{N+1}.
+    \label{eq:stage2-decaying-tail}
+\end{align}
+Thus the finite SDP imposes the SOC constraint
+\begin{equation}
+    \left|
+      \sum_zG[(z,s),(z,t)]
+      -
+      \sum_{S_N}
+      p_{m_A,m_B}
+      (z_A^{st})^{m_A}(z_B^{st})^{m_B}
+    \right|
+    \le
+    \varepsilon_N\rho_{st}^{N+1}.
+    \label{eq:stage2-truncated-soc}
+\end{equation}
+
+When both phase differences are nonzero,
+\(|z_X^{st}|<1\), so the attenuation produces an exponentially decaying tail
+factor.  If one phase difference vanishes then the corresponding
+\(|z_X^{st}|=1\), and the uniform bound may revert to the bare
+\(\varepsilon_N\).
+
+\subsection{Why Stage 2 becomes computationally impractical}
+
+Pure loss obeys
+\[
+    \mathbb E[N_X]=\tau\mathbb E[M_X].
+\]
+Therefore an \(O(1)\) delivered mean requires input photon numbers of order
+\[
+    M_X=O(\tau^{-1}).
+\]
+At realistic attenuation such as \(\tau\sim10^{-6}\), a direct Fock grid
+would therefore have to reach photon numbers of order \(10^5\)--\(10^6\),
+which is computationally prohibitive.
+
+This scaling, rather than a conceptual failure of the SDP, motivates the
+continuum reformulation of Stage~3.
+
+For reference, the current finite-Fock numerical values at
 \[
     \bar n=10^{-2},\quad L=0,\quad M=4,\quad N_{\rm in}=60
 \]
-are
+were
 \begin{center}
 \begin{tabular}{cc}
 \toprule
@@ -836,227 +1114,658 @@ are
 \bottomrule
 \end{tabular}
 \end{center}
+These values are historical numerical benchmarks; they are not the central
+rigour statement of this section.
 
-\section{Stage 3: strong-attenuation / continuum reformulation}
+\section{Stage 3: exact rescaling, continuum relaxation, and certified finite representation}
 \label{sec:stage3-rigorous}
 
-\subsection{Exact lattice measure before taking the limit}
+Stage~3 should be viewed as Stage~2 written at the natural scale of the
+\emph{delivered} energy.  There are three conceptually separate steps:
 
-Introduce the delivered energies
-\[
+\begin{enumerate}
+    \item the change of variables \(u_X=\tau m_X\), which is exact;
+    \item dropping the lattice restriction \(u_X\in\tau\mathbb Z_{\ge0}\),
+    which is a safe outer relaxation;
+    \item replacing the exact finite-\(\tau\) kernel \(K_\tau\) by its
+    strong-attenuation limit \(K_0\), which is rigorous only when the
+    finite-\(\tau\) error is carried explicitly as overlap slack.
+\end{enumerate}
+
+A fourth step is needed for computation: the continuum measure must be mapped
+to a finite-dimensional outer approximation.  A fixed support grid is
+\emph{not} sufficient for this.
+
+\subsection{Exact push-forward from photon number to delivered energy}
+
+Define
+\begin{equation}
     u_A=\tau m_A,
     \qquad
     u_B=\tau m_B.
-\]
-For a discrete input distribution \(p_{m_A,m_B}\), define its push-forward
-measure
+    \label{eq:stage3-rescaling}
+\end{equation}
+For a Stage-2 distribution \(p_{m_A,m_B}\), define the push-forward measure
 \begin{equation}
     \nu_\tau
     :=
-    \sum_{m_A,m_B}
+    \sum_{m_A,m_B\ge0}
       p_{m_A,m_B}
       \delta_{(\tau m_A,\tau m_B)}.
     \label{eq:stage3-lattice-measure}
 \end{equation}
-It is supported on \((\tau\mathbb Z_{\ge0})^2\). The exact overlap is
+This is a probability measure supported on
+\[
+    (\tau\mathbb Z_{\ge0})^2.
+\]
+No approximation has yet been made.
+
+The energy constraints become
 \begin{equation}
+    \int u_A\,d\nu_\tau
+    \le\frac{\bar n}{2},
+    \qquad
+    \int u_B\,d\nu_\tau
+    \le\frac{\bar n}{2},
+    \label{eq:stage3-perarm-energy}
+\end{equation}
+and therefore
+\begin{equation}
+    \int(u_A+u_B)\,d\nu_\tau
+    \le\bar n.
+    \label{eq:stage3-energy}
+\end{equation}
+The factor \(1/\tau\) has disappeared from the optimization variables.
+
+\subsection{The kernel \(K_\tau\): conditional overlap at fixed delivered energy}
+
+For a state pair \(s,t\), define
+\[
+    a_X^{st}
+    :=
+    1-e^{i\Delta\phi_X^{st}}.
+\]
+Using \(m_X=u_X/\tau\) in
+Eq.~\eqref{eq:stage2-exact-kernel}, define
+\begin{equation}
+    \boxed{
+    K_\tau^{st}(u_A,u_B)
+    :=
+    \prod_{X=A,B}
+    \left(
+      1-\tau a_X^{st}
+    \right)^{u_X/\tau}.
+    }
+    \label{eq:stage3-finite-kernel}
+\end{equation}
+On the physical lattice this is just another notation for
+\[
+    (z_A^{st})^{m_A}(z_B^{st})^{m_B}.
+\]
+Hence the exact physical overlap is
+\begin{equation}
+    \boxed{
     \Lambda^{(\tau)}_{st}
     =
     \int
-      K_\tau(u_A,u_B)
-      \,d\nu_\tau,
+      K_\tau^{st}(u_A,u_B)
+      \,d\nu_\tau(u_A,u_B).
+    }
     \label{eq:stage3-exact-integral}
 \end{equation}
-with
-\begin{equation}
-    K_\tau
-    =
-    \prod_{X=A,B}
-    \left[
-      1-\tau(1-e^{i\Delta\phi_X})
-    \right]^{u_X/\tau}.
-    \label{eq:stage3-finite-kernel}
-\end{equation}
-The energy constraint becomes
-\begin{equation}
-    \int (u_A+u_B)\,d\nu_\tau
-    \le
-    \bar n.
-    \label{eq:stage3-energy}
-\end{equation}
 
-\subsection{Controlled strong-attenuation limit}
+Thus \(K_\tau^{st}(u)\) is the overlap contribution associated with a fixed
+scaled input energy \(u\), after exact binomial thinning at transmissivity
+\(\tau\).
 
-Set
-\[
-    a_X:=1-e^{i\Delta\phi_X}.
-\]
-For \(\tau\le1/4\), \(|\tau a_X|\le1/2\). The estimate
+\subsection{The limiting kernel \(K_0\) and the mixed-Poisson picture}
+
+At fixed \(u_X\),
+\begin{align}
+    \frac{u_X}{\tau}
+    \log(1-\tau a_X)
+    &=
+    -u_Xa_X
+    -\frac12u_X\tau a_X^2
+    +O(u_X\tau^2).
+\end{align}
+Therefore
 \begin{equation}
-    |\log(1-w)+w|
-    \le
-    |w|^2,
-    \qquad |w|\le\frac12,
-    \label{eq:stage3-log-bound}
+    \left(1-\tau a_X\right)^{u_X/\tau}
+    \longrightarrow
+    e^{-u_Xa_X}
+    \qquad
+    (\tau\to0),
 \end{equation}
-follows from the logarithm power series.
-
-Define
+and we define
 \begin{equation}
-    K_0(u_A,u_B)
+    \boxed{
+    K_0^{st}(u_A,u_B)
     :=
-    \exp[-u_Aa_A-u_Ba_B].
+    \exp[
+      -u_Aa_A^{st}
+      -u_Ba_B^{st}
+    ].
+    }
     \label{eq:stage3-limit-kernel}
 \end{equation}
 
-\begin{proposition}[Finite-\(\tau\) kernel error]
-For \(u_A+u_B\le U\),
-\begin{equation}
-    |K_\tau-K_0|
-    \le
-    4\tau(u_A+u_B)e^{4\tau(u_A+u_B)}
-    \le
-    4\tau Ue^{4\tau U}.
-    \label{eq:stage3-pointwise-error}
-\end{equation}
-\end{proposition}
-
-\begin{proof}
-Write \(K_\tau=K_0e^\delta\), where
+This is exactly the characteristic-function kernel of independent Poisson
+variables conditioned on \(u_A,u_B\):
 \[
-    \delta
+    N_X|U_X=u_X
+    \sim
+    \operatorname{Poisson}(u_X),
+\]
+because
+\[
+    \mathbb E[e^{i\theta N_X}|U_X=u_X]
+    =
+    e^{-u_X(1-e^{i\theta})}.
+\]
+Thus the continuum model is a two-mode mixed-Poisson model:
+\[
+    (U_A,U_B)\sim\nu,
+\]
+followed conditionally by independent Poisson thinning in the two arms.
+The mixing variables \(U_A,U_B\) themselves may be arbitrarily correlated.
+
+A coherent-state photon-number law is the special case where \(\nu\) is a
+delta measure.  Strong attenuation does \emph{not} force an arbitrary source
+to become coherent; it makes each fixed-\(u\) component Poissonian while
+leaving Eve free to mix different \(u\)'s.
+
+\subsection{Rigorous finite-\(\tau\) replacement of \(K_\tau\) by \(K_0\)}
+
+The replacement \(K_\tau\mapsto K_0\) is not used as an uncontrolled
+approximation.  It is converted into a rigorous outer relaxation by bounding
+the kernel error.
+
+For \(\tau\le1/4\), \(|\tau a_X|\le1/2\), and
+\begin{equation}
+    |\log(1-w)+w|
+    \le|w|^2,
+    \qquad |w|\le\frac12.
+    \label{eq:stage3-log-bound}
+\end{equation}
+Write
+\[
+    K_\tau^{st}=K_0^{st}e^{\delta_{st}},
+\]
+with
+\[
+    \delta_{st}
     =
     \sum_X
     \frac{u_X}{\tau}
     \left[
-      \log(1-\tau a_X)+\tau a_X
+      \log(1-\tau a_X^{st})
+      +\tau a_X^{st}
     \right].
 \]
-By Eq.~\eqref{eq:stage3-log-bound} and \(|a_X|\le2\),
-\[
-    |\delta|
+Since \(|a_X^{st}|\le2\),
+\begin{equation}
+    |\delta_{st}|
     \le
     4\tau(u_A+u_B).
+\end{equation}
+Also
+\[
+    |K_0^{st}|
+    =
+    e^{-\sum_Xu_X(1-\cos\Delta\phi_X^{st})}
+    \le1.
 \]
-Moreover \(\operatorname{Re}(a_X)=1-\cos\Delta\phi_X\ge0\), so
-\(|K_0|\le1\). Using
-\(|e^\delta-1|\le|\delta|e^{|\delta|}\) gives the result.
-\end{proof}
+Therefore
+\begin{equation}
+    \boxed{
+    |K_\tau^{st}-K_0^{st}|
+    \le
+    4\tau(u_A+u_B)
+    e^{4\tau(u_A+u_B)}.
+    }
+    \label{eq:stage3-pointwise-error}
+\end{equation}
 
-If the measure is supported in \(u_A+u_B\le U\), integration and
-Eq.~\eqref{eq:stage3-energy} give
+If the explicitly represented region obeys
+\[
+    u_A+u_B\le U,
+\]
+then
+\begin{align}
+    \left|
+      \int K_\tau^{st}\,d\nu
+      -
+      \int K_0^{st}\,d\nu
+    \right|
+    &\le
+    4\tau e^{4\tau U}
+    \int(u_A+u_B)d\nu
+    \nonumber\\
+    &\le
+    \boxed{
+      4\tau\bar n\,e^{4\tau U}
+    }.
+    \label{eq:stage3-integrated-error}
+\end{align}
+Thus the finite-\(\tau\) physical overlap is not set equal to the
+\(K_0\)-integral.  Instead the SDP allows
 \begin{equation}
     \left|
-      \Lambda^{(\tau)}_{st}
+      \sum_zG[(z,s),(z,t)]
       -
-      \Lambda^{(0)}_{st}
+      \int K_0^{st}\,d\nu
     \right|
     \le
-    4\tau\bar n\,e^{4\tau U}.
-    \label{eq:stage3-integrated-error}
+    \Delta_{\tau,st},
+    \label{eq:stage3-kernel-slack}
 \end{equation}
-Thus the finite-\(\tau\) error can be inserted explicitly as additional
-overlap slack.
+where \(\Delta_{\tau,st}\) is any proven upper bound such as
+Eq.~\eqref{eq:stage3-integrated-error}, together with the other truncation
+slacks introduced below.
 
-Dropping the lattice restriction and allowing any probability measure
-\(\nu\) on \(\mathbb R_{\ge0}^2\) with the same moment constraints enlarges
-the feasible set. Hence the exact continuum problem, supplemented by
-Eq.~\eqref{eq:stage3-integrated-error}, is an outer relaxation of the
-physical finite-\(\tau\) problem.
+This is the security point: the true finite-\(\tau\) overlap is guaranteed to
+lie inside the allowed disk.  Therefore replacing \(K_\tau\) by \(K_0\)
+\emph{with the certified slack} enlarges the feasible set and does not
+sacrifice the security proof.
 
-\subsection{Mixed-Poisson interpretation}
+\subsection{Dropping the lattice is a separate safe relaxation}
 
-For one mode,
-\[
-    N\mid U=u\sim\operatorname{Poisson}(u)
-    \quad\Longrightarrow\quad
-    \mathbb E[e^{i\theta N}\mid U=u]
-    =
-    e^{-u(1-e^{i\theta})}.
-\]
-Thus the continuum model is a mixed-Poisson source:
-\[
-    U\sim\nu,
-    \qquad
-    N\mid U=u\sim\operatorname{Poisson}(u).
-\]
-A fixed coherent intensity is the special case
-\(\nu=\delta_{u_0}\).
+The exact physical measure \(\nu_\tau\) is supported on
+\((\tau\mathbb Z_{\ge0})^2\).  Stage~3 drops this support condition and
+allows any positive probability measure \(\nu\) on
+\(\mathbb R_{\ge0}^2\) satisfying the same moment constraints.
 
-The factorial moments satisfy
-\[
-    \mathbb E[N]=\mathbb E[U],
-    \qquad
-    \mathbb E[N(N-1)]=\mathbb E[U^2],
-\]
-and therefore
+Since every lattice measure is also a continuum measure,
 \begin{equation}
-    g^{(2)}
-    =
-    1+
-    \frac{\operatorname{Var}(U)}{\mathbb E[U]^2}.
-    \label{eq:stage3-mixed-poisson-g2}
+    \boxed{
+    \{\nu_\tau\text{ on }(\tau\mathbb Z_{\ge0})^2\}
+    \subseteq
+    \{\nu\text{ on }\mathbb R_{\ge0}^2\}.
+    }
+    \label{eq:stage3-lattice-inclusion}
 \end{equation}
-A first-moment monitor fixes \(\mathbb E[U]\) but leaves
-\(\operatorname{Var}(U)\) unbounded.
-
-\subsection{Continuum truncation and finite-grid certification}
-
-For
+Hence this step gives Eve more freedom and is automatically safe:
 \[
-    D_U:=\{(u_A,u_B):u_A+u_B\le U\},
-    \qquad
-    \varepsilon_U:=1-\nu(D_U),
+    e_{\rm ph}^{\rm lattice}
+    \le
+    e_{\rm ph}^{\rm continuum}.
 \]
-the tail must satisfy
+No small-\(\tau\) approximation is involved in this inclusion.
+
+\subsection{The exact continuum optimization is measure-valued}
+
+After the two outer relaxations above, the formal Stage-3 problem is
 \begin{equation}
-    \int_{D_U}(u_A+u_B)\,d\nu
+\begin{aligned}
+    \text{maximize}_{G,\nu}\quad&
+    e_{\rm ph}(G)
+    \\
+    \text{subject to}\quad&
+    G\succeq0,
+    \\
+    &\nu\ge0,
+    \qquad
+    \int d\nu=1,
+    \\
+    &\int u_A\,d\nu\le\frac{\bar n}{2},
+    \qquad
+    \int u_B\,d\nu\le\frac{\bar n}{2},
+    \\
+    &\left|
+      \sum_zG[(z,s),(z,t)]
+      -
+      \int K_0^{st}(u)\,d\nu(u)
+    \right|
+    \le
+    \Delta_{\tau,st}
+    \quad\forall s,t,
+    \\
+    &G[(z,s),(z,s)]
+    =
+    P(z|s)
+    \quad\forall z,s.
+\end{aligned}
+    \label{eq:stage3-measure-program}
+\end{equation}
+
+This is an infinite-dimensional convex conic problem: the Gram matrix is
+finite-dimensional, while \(\nu\) ranges over positive measures.  It is not
+yet an ordinary CVXPY SDP.
+
+However, the measure enters only through finitely many linear functionals:
+normalization, first moments, and the real and imaginary parts of
+\[
+    \int K_0^{st}\,d\nu.
+\]
+Therefore only a finite-dimensional moment vector is visible to the QKD SDP.
+
+On a compact domain \(D\), the vector
+\[
+    y=\int_D F(u)\,d\nu(u),
+\]
+with
+\[
+    F(u)
+    =
+    \left(
+      1,u_A,u_B,
+      \{\Re K_0^{st}(u),\Im K_0^{st}(u)\}_{s<t}
+    \right),
+\]
+lies in the convex hull of \(\{F(u):u\in D\}\).  Standard convex-hull
+results imply that the same finite set of moments can be represented by a
+finite atomic measure.  The difficulty is not the existence of a finite
+atomic representation, but that the atom locations are unknown continuous
+variables; optimizing both weights and locations directly destroys the
+simple SDP structure.
+
+\subsection{Continuum tail truncation}
+
+For computation choose a compact region
+\[
+    D_U
+    :=
+    \{(u_A,u_B):u_A+u_B\le U\}
+\]
+and define
+\[
+    \varepsilon_U
+    :=
+    1-\nu(D_U).
+\]
+Since every point outside \(D_U\) satisfies \(u_A+u_B>U\),
+\begin{equation}
+    \int_{D_U}(u_A+u_B)d\nu
     +
     U\varepsilon_U
     \le
     \bar n.
     \label{eq:stage3-tail-energy}
 \end{equation}
-The omitted overlap contribution has modulus at most \(\varepsilon_U\).
+The omitted overlap contribution obeys
+\begin{equation}
+    \left|
+      \int_{D_U^c}K_0^{st}\,d\nu
+    \right|
+    \le
+    \varepsilon_U,
+    \label{eq:stage3-tail-overlap}
+\end{equation}
+because \(|K_0^{st}|\le1\).
 
-A second distinction is important. Replacing the continuous domain \(D_U\)
-by a finite set of support points is an inner approximation and is not
-automatically a rigorous security bound. A rigorous finite-grid
-implementation may instead partition \(D_U\) into cells \(C_j\), retain the
-cell masses \(q_j=\nu(C_j)\), and add a kernel-enclosure error. Since
+The separate in-domain first-moment constraints
+\[
+    \int_{D_U}u_A\,d\nu\le\frac{\bar n}{2},
+    \qquad
+    \int_{D_U}u_B\,d\nu\le\frac{\bar n}{2}
+\]
+remain valid by simply dropping the nonnegative tail contribution.  As in the
+Fock truncation, one cannot charge the same \(U\varepsilon_U\) separately to
+both arms.
+
+\subsection{Why a fixed support grid is not a security bound}
+
+Suppose one chooses grid points
+\[
+    \mathcal G=\{u^{(1)},\ldots,u^{(J)}\}
+\]
+and optimizes
+\[
+    \nu=\sum_{j=1}^{J}q_j\delta_{u^{(j)}}.
+\]
+This is computationally convenient because
+\[
+    \int K_0^{st}\,d\nu
+    =
+    \sum_jq_jK_0^{st}(u^{(j)})
+\]
+is linear in \(q_j\).
+
+But it restricts Eve:
+\[
+    \{\text{grid-supported measures}\}
+    \subset
+    \{\text{all continuum measures}\}.
+\]
+Therefore
+\begin{equation}
+    e_{\rm ph}^{\rm grid}
+    \le
+    e_{\rm ph}^{\rm continuum},
+    \label{eq:stage3-grid-inner}
+\end{equation}
+which is the wrong direction for a security upper bound.  A dense grid may be
+numerically accurate, but density by itself does not prove security.
+
+This is the present logical limitation of the current Stage-3 numerical code.
+
+\subsection{Certified finite-dimensional cell relaxation}
+
+A direct rigorous fix is to partition \(D_U\) into cells
+\[
+    D_U=\bigcup_{j=1}^{J}C_j
+\]
+and optimize only the cell masses
+\[
+    q_j:=\nu(C_j).
+\]
+Choose a representative point \(\bar u^{(j)}\in C_j\).  For each state pair,
+write
+\begin{align}
+    \int_{C_j}K_0^{st}(u)\,d\nu(u)
+    &=
+    q_jK_0^{st}(\bar u^{(j)})
+    +r_{st,j}.
+\end{align}
+Since
+\[
+    \frac{\partial K_0^{st}}{\partial u_X}
+    =
+    -a_X^{st}K_0^{st},
+\]
+we have
 \[
     \left|
-      \frac{\partial K_0}{\partial u_X}
+      \frac{\partial K_0^{st}}{\partial u_X}
     \right|
-    =
-    |a_X|\,|K_0|
     \le
-    |a_X|
-    \le2,
+    |a_X^{st}|.
 \]
-for a representative point \(u^{(j)}\in C_j\),
+Hence, for any \(u\in C_j\),
 \begin{equation}
-    |K_0(u)-K_0(u^{(j)})|
+    |K_0^{st}(u)-K_0^{st}(\bar u^{(j)})|
     \le
-    |a_A|\,|u_A-u_A^{(j)}|
+    |a_A^{st}|\,|u_A-\bar u_A^{(j)}|
     +
-    |a_B|\,|u_B-u_B^{(j)}|.
+    |a_B^{st}|\,|u_B-\bar u_B^{(j)}|.
     \label{eq:stage3-cell-bound}
 \end{equation}
-Adding the weighted cell error to the overlap slack makes the grid an outer
-approximation. Until that enclosure is implemented, the present continuum
-grid should be treated as a numerical approximation rather than a fully
-certified continuum bound.
+Define the cell enclosure radius
+\begin{equation}
+    \delta_{st,j}
+    :=
+    \sup_{u\in C_j}
+    \left(
+      |a_A^{st}|\,|u_A-\bar u_A^{(j)}|
+      +
+      |a_B^{st}|\,|u_B-\bar u_B^{(j)}|
+    \right).
+    \label{eq:stage3-cell-radius}
+\end{equation}
+Then
+\begin{equation}
+    |r_{st,j}|
+    \le
+    q_j\delta_{st,j},
+\end{equation}
+and summing over cells gives
+\begin{equation}
+    \left|
+      \int_{D_U}K_0^{st}\,d\nu
+      -
+      \sum_jq_jK_0^{st}(\bar u^{(j)})
+    \right|
+    \le
+    \sum_jq_j\delta_{st,j}.
+    \label{eq:stage3-cell-total-error}
+\end{equation}
 
-At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), the current scan is largest near
+The certified finite overlap constraint is therefore
+\begin{equation}
+\boxed{
+    \left|
+      \sum_zG[(z,s),(z,t)]
+      -
+      \sum_jq_jK_0^{st}(\bar u^{(j)})
+    \right|
+    \le
+    \sum_jq_j\delta_{st,j}
+    +
+    \Delta_{\tau,st}
+    +
+    \varepsilon_U.
+}
+    \label{eq:stage3-certified-soc}
+\end{equation}
+The right-hand side is affine in the optimization variables and nonnegative,
+so Eq.~\eqref{eq:stage3-certified-soc} is an SOC constraint.
+
+The energy constraints must be enclosed in the same safe direction.  For a
+cell \(C_j\), let
+\[
+    \underline u_{A,j}
+    :=
+    \inf_{u\in C_j}u_A,
+    \qquad
+    \underline u_{B,j}
+    :=
+    \inf_{u\in C_j}u_B.
+\]
+Every physical measure mapped to cell masses \(q_j\) satisfies
+\begin{equation}
+    \sum_j\underline u_{A,j}q_j
+    \le
+    \frac{\bar n}{2},
+    \qquad
+    \sum_j\underline u_{B,j}q_j
+    \le
+    \frac{\bar n}{2},
+    \label{eq:stage3-cell-perarm-energy}
+\end{equation}
+and
+\begin{equation}
+    \sum_j
+    (\underline u_{A,j}+\underline u_{B,j})q_j
+    +
+    U\varepsilon_U
+    \le
+    \bar n.
+    \label{eq:stage3-cell-total-energy}
+\end{equation}
+Using cell centers in these upper-energy constraints without compensating
+slack would again restrict the physical measure and would not be rigorous.
+
+The finite cell problem therefore obeys the desired inclusion
+\begin{equation}
+    \boxed{
+    \mathcal F_{\rm physical}
+    \subseteq
+    \mathcal F_{\rm continuum}
+    \subseteq
+    \mathcal F_{\rm cell}.
+    }
+    \label{eq:stage3-feasible-chain}
+\end{equation}
+Consequently
+\begin{equation}
+    \boxed{
+    e_{\rm ph}^{\rm physical}
+    \le
+    e_{\rm ph}^{\rm continuum}
+    \le
+    e_{\rm ph}^{\rm cell}.
+    }
+    \label{eq:stage3-objective-chain}
+\end{equation}
+
+Refining the cells should tighten the certified upper bound from above.  Thus
+a useful numerical validation is to verify a monotone or approximately
+monotone sequence
+\[
+    e_{\rm ph}^{\rm coarse}
+    \ge
+    e_{\rm ph}^{\rm medium}
+    \ge
+    e_{\rm ph}^{\rm fine}.
+\]
+
+\subsection{Alternative computational route: adaptive exchange}
+
+The cell relaxation is the simplest route for the present project because it
+stays close to the existing CVXPY implementation.  A potentially more
+efficient alternative is a semi-infinite exchange method:
+
+\begin{enumerate}
+    \item solve a finite SDP on a current set of support points;
+    \item use the dual solution to construct a continuous violation function
+    over \(u\in D_U\);
+    \item globally minimize that function;
+    \item if a violating point exists, add it and repeat.
+\end{enumerate}
+
+Because \(u=(u_A,u_B)\) is only two-dimensional, this may eventually be
+attractive.  Rigour would require a certified global solution of the
+continuous separation problem.  The cell-enclosure route is therefore the
+preferred first implementation.
+
+\subsection{Mixed-Poisson moments and the concentration freedom}
+
+For one arm in the limiting model,
+\[
+    N|U=u\sim\operatorname{Poisson}(u).
+\]
+Hence
+\[
+    \mathbb E[N]
+    =
+    \mathbb E[U],
+    \qquad
+    \mathbb E[N(N-1)]
+    =
+    \mathbb E[U^2].
+\]
+Therefore
+\begin{equation}
+    g^{(2)}
+    =
+    1+
+    \frac{\operatorname{Var}(U)}
+         {\mathbb E[U]^2}.
+    \label{eq:stage3-mixed-poisson-g2}
+\end{equation}
+A first-moment constraint fixes \(\mathbb E[U]\) but leaves
+\(\operatorname{Var}(U)\) unbounded.  This is the continuum expression of the
+rare-bright-pulse freedom already visible in Stage~1.
+
+\subsection{Status of the present Stage-3 numerics}
+
+At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), the current fixed-grid scan is
+largest near
 \[
     \bar n\simeq0.1,
     \qquad
-    e_{\rm ph}=0.2348,
+    e_{\rm ph}\simeq0.235\text{--}0.238,
     \qquad
-    R=6.89\times10^{-3},
+    R\simeq7\times10^{-3}.
 \]
-while the range cutoff remains around \(2\) km.
+These numbers are useful diagnostics, but the current code places \(\nu\)
+only on predetermined logarithmic support points and is therefore an inner
+approximation of the continuum measure problem.  They should not yet be
+presented as certified security upper bounds.  The next numerical task is to
+replace that support restriction by the cell relaxation
+Eq.~\eqref{eq:stage3-certified-soc} and check how much the bound moves.
+
 
 \section{Concentration attack: rigorous inequality and heuristic saturation}
 \label{sec:concentration-rigorous}
@@ -1145,8 +1854,19 @@ a standalone theorem; it is an interpretation of the SDP optimum.
 \section{Stage 4: per-pulse energy monitoring}
 \label{sec:stage4-rigorous}
 
-Stage~4 replaces a first-moment constraint by information about the support
-of the delivered-energy distribution on accepted rounds.
+Stage~4 is not a different Gram-matrix optimization.  It is the same
+measure-valued Stage-3 problem, with a stronger feasible set for the mixing
+measure \(\nu\).  The Gram matrix \(G\), A7 phase-error objective, kernel
+\(K_0^{st}\), finite-\(\tau\) slack, and observed-statistics constraints are
+unchanged.  What changes is the source information: instead of knowing only a
+first moment, Alice and Bob obtain per-round information that confines the
+accepted measure to an energy window.
+
+Consequently the certified continuum discretization of
+Section~\ref{sec:stage3-rigorous} should be implemented before relying on
+Stage-4 numerical scans.  Once that machinery exists, an ideal Stage-4
+calculation is obtained largely by retaining only cells intersecting the
+accepted window and modifying the corresponding moment constraints.
 
 \subsection{Ideal monitor as a quantum instrument}
 
