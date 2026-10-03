@@ -2115,4 +2115,502 @@ directly removes the degree of freedom responsible for the range collapse and
 is therefore the current leading route toward a useful plug-and-play
 phase-matching QKD protocol.
 
+
+
+\appendix
+
+\section{Clarifications on the trusted-attenuation construction}
+\label{app:trusted-attenuation-clarifications}
+
+This appendix collects three points that are easy to conflate in the main
+derivation:
+
+\begin{enumerate}
+    \item mixed states are not by themselves an obstruction to a Gram
+    construction; the useful extra structure is a known common unitary orbit;
+    \item the auxiliary purifier used in the Gram relaxation is not the
+    physical reflected loss port, and is not physically assumed to be in
+    Eve's possession;
+    \item the mean-energy constraint must be placed on the variable
+    corresponding to the location of the trusted monitor.  When the monitored
+    quantity is the light leaving Alice's and Bob's laboratories after trusted
+    attenuation, the same bound appears with a factor \(1/\tau\) when written
+    in terms of the pre-attenuation photon-number distribution.
+\end{enumerate}
+
+\subsection{Common orbit versus a generic mixed-state family}
+\label{app:common-orbit-example}
+
+The statement that loss makes the states mixed and therefore prevents any
+Gram construction is too coarse.  The relevant distinction is instead
+\[
+    \boxed{
+    \text{mixed states on a known common unitary orbit}
+    \quad\text{versus}\quad
+    \text{a generic mixed-state family}.
+    }
+\]
+A simple three-state example makes this explicit.
+
+\subsubsection{Three phase states that remain on one orbit}
+
+Work in the single-rail subspace
+\(\operatorname{span}\{|0\rangle,|1\rangle\}\), and choose the three phases
+\[
+    \phi_j=\frac{2\pi j}{3},
+    \qquad
+    j=0,1,2.
+\]
+Define
+\[
+    U_j
+    =
+    |0\rangle\!\langle0|
+    +
+    e^{i\phi_j}|1\rangle\!\langle1|,
+\]
+and start from
+\[
+    |+\rangle
+    =
+    \frac{|0\rangle+|1\rangle}{\sqrt2}.
+\]
+Before loss,
+\[
+    |\psi_j\rangle
+    =
+    U_j|+\rangle
+    =
+    \frac{|0\rangle+e^{i\phi_j}|1\rangle}{\sqrt2}.
+\]
+
+Let \(\mathcal L_\eta\) be pure loss of transmissivity \(\eta\).  Since pure
+loss is phase covariant,
+\[
+    \mathcal L_\eta(U_j\rho U_j^\dagger)
+    =
+    U_j\mathcal L_\eta(\rho)U_j^\dagger.
+\]
+Therefore the three output states satisfy
+\[
+    \rho_j
+    =
+    U_j\rho_0U_j^\dagger.
+\]
+Explicitly,
+\begin{equation}
+    \rho_j
+    =
+    \begin{pmatrix}
+        1-\eta/2
+        &
+        \frac{\sqrt{\eta}}{2}e^{-i\phi_j}
+        \\[1mm]
+        \frac{\sqrt{\eta}}{2}e^{i\phi_j}
+        &
+        \eta/2
+    \end{pmatrix}.
+    \label{eq:app-phase-orbit-rho}
+\end{equation}
+All three states have the same spectrum, as they must under unitary
+conjugation.
+
+Choose one purification
+\[
+    |\chi_0\rangle_{TR}
+\]
+of \(\rho_0\), and define
+\[
+    |\chi_j\rangle
+    =
+    (U_j\otimes I_R)|\chi_0\rangle.
+\]
+Then
+\[
+    \operatorname{Tr}_R|\chi_j\rangle\!\langle\chi_j|
+    =
+    \rho_j,
+\]
+and the pairwise overlaps are fixed by
+\begin{align}
+    \langle\chi_j|\chi_k\rangle
+    &=
+    \operatorname{Tr}
+    \left[
+      \rho_0U_j^\dagger U_k
+    \right]
+    \nonumber\\
+    &=
+    1-\frac{\eta}{2}
+    +
+    \frac{\eta}{2}
+    e^{i(\phi_k-\phi_j)}.
+    \label{eq:app-phase-orbit-overlap}
+\end{align}
+Thus the three mixed output states admit one consistent purified Gram matrix.
+
+This is exactly the structure used in our trusted-attenuation argument.  More
+generally, if a lossy mode-discrimination family happens to satisfy
+\[
+    \rho_j=W_j\rho_0W_j^\dagger
+\]
+for known \(W_j\), then the same common-purification construction can be made.
+The observation in arXiv:2012.11104 that their generic lossy
+channel-discrimination problem is no longer directly described by their
+original pure-state SDP should therefore not be read as a no-go theorem for
+every special covariant family.
+
+For a discrimination problem, however, the purification-based Gram
+optimization need not equal the physical mixed-state discrimination optimum:
+the physical receiver acts only on \(T\), whereas an unconstrained Gram
+optimization can effectively exploit additional freedom associated with the
+purifier.  It is therefore naturally interpreted as an upper bound unless the
+restriction to physical measurements on \(T\) is enforced separately.
+
+\subsubsection{Three states that do not remain on one orbit}
+
+Now take instead
+\[
+    |\psi_0\rangle=|0\rangle,
+    \qquad
+    |\psi_1\rangle=|1\rangle,
+    \qquad
+    |\psi_2\rangle
+    =
+    \frac{|0\rangle+|1\rangle}{\sqrt2}.
+\]
+Before loss these three pure states can certainly be related to
+\(|0\rangle\) by suitable unitaries.  After the same pure-loss channel,
+however,
+\begin{align}
+    \rho_0
+    &=
+    \begin{pmatrix}
+        1&0\\
+        0&0
+    \end{pmatrix},
+    \\
+    \rho_1
+    &=
+    \begin{pmatrix}
+        1-\eta&0\\
+        0&\eta
+    \end{pmatrix},
+    \\
+    \rho_2
+    &=
+    \begin{pmatrix}
+        1-\eta/2&\sqrt{\eta}/2\\
+        \sqrt{\eta}/2&\eta/2
+    \end{pmatrix}.
+    \label{eq:app-nonorbit-rhos}
+\end{align}
+For generic \(0<\eta<1\), these states have different spectra.  Hence there
+cannot exist unitaries \(W_j\) such that
+\[
+    \rho_j=W_j\rho_0W_j^\dagger,
+\]
+because unitary conjugation preserves eigenvalues.
+
+One can of course purify each \(\rho_j\) separately, but then there is no
+distinguished relation of the form
+\[
+    |\chi_j\rangle
+    =
+    (W_j\otimes I_R)|\chi_0\rangle
+\]
+that fixes all pairwise overlaps from one reference state.  Different choices
+of purification can give different overlaps.  This is the obstruction that
+the common-orbit property removes.
+
+\subsection{What the auxiliary purification means physically}
+\label{app:purifier-meaning}
+
+It is important to distinguish four systems:
+\[
+    T,\qquad E_0,\qquad L,\qquad R.
+\]
+Here \(T\) is the transmitted light returned to the untrusted node,
+\(E_0\) is Eve's ancilla from preparing the source, \(L\) is the physical
+trusted loss port of the attenuator, and \(R\) is an auxiliary mathematical
+purifier introduced only after \(L\) has been traced out.
+
+The physical post-attenuation state is
+\[
+    \rho_s^{TE_0}
+    =
+    \operatorname{Tr}_{L}
+    |\Phi_s\rangle\!\langle\Phi_s|_{TE_0L}.
+\]
+The system \(L\) is trusted and unavailable to Eve.  By phase covariance,
+\[
+    \rho_s^{TE_0}
+    =
+    W_s\rho_0^{TE_0}W_s^\dagger.
+\]
+We then choose a mathematical purification
+\[
+    |\chi_0\rangle_{TE_0R}
+\]
+of \(\rho_0^{TE_0}\) and define
+\[
+    |\chi_s\rangle
+    =
+    (W_s\otimes I_R)|\chi_0\rangle.
+\]
+
+A physical Eve acts only on \(TE_0\).  If her instrument has Kraus operators
+\(K_z\), then on the purified representation the physical residual vectors
+are
+\begin{equation}
+    |e_s^z\rangle
+    =
+    (K_z\otimes I_R)|\chi_s\rangle.
+    \label{eq:app-physical-purified-attack}
+\end{equation}
+Thus the introduction of \(R\) does \emph{not} physically assume that Eve
+possesses the purifier.
+
+The outer relaxation occurs only afterwards.  The SDP keeps the Gram
+positivity, observed diagonal entries, and overlap-conservation constraints,
+but does not explicitly enforce that all residual vectors arise from one
+common instrument of the form \(K_z\otimes I_R\).  Consequently,
+\[
+    \mathcal F_{\rm physical}
+    \subseteq
+    \mathcal F_{\rm Gram}.
+\]
+One may heuristically interpret the enlarged Gram problem as giving Eve access
+to additional purifier-like degrees of freedom, but this is a mathematical
+upper-bounding device rather than a statement about the physical apparatus.
+
+\subsubsection{Why \(R\) must not be identified with the physical loss port}
+
+If the actual reflected port \(L\) were retained, the complete beamsplitter
+evolution would be unitary and independent of the encoded label \(s\).  Hence
+\begin{equation}
+    \langle\Phi_s|\Phi_t\rangle
+    =
+    \langle\psi_s|\psi_t\rangle.
+    \label{eq:app-physical-loss-port-overlap}
+\end{equation}
+At this global level the attenuator does not change distinguishability:
+nothing has actually been discarded.
+
+By contrast, after tracing out \(L\) and constructing the covariant
+purification of the reduced transmitted state, the overlap becomes
+\begin{equation}
+    \langle\chi_s|\chi_t\rangle
+    =
+    \operatorname{Tr}
+    \left[
+      \rho_0^{TE_0}W_s^\dagger W_t
+    \right],
+    \label{eq:app-virtual-purifier-overlap}
+\end{equation}
+which yields the attenuated kernel
+\[
+    \sum_m p_m
+    \left(
+      1-\tau+\tau e^{i\Delta\phi}
+    \right)^m
+\]
+in one mode.
+
+For example, for
+\[
+    |\psi_\phi\rangle
+    =
+    \frac{|0\rangle+e^{i\phi}|1\rangle}{\sqrt2},
+\]
+keeping the physical beamsplitter environment gives
+\[
+    \langle\Phi_\phi|\Phi_{\phi'}\rangle
+    =
+    \frac12
+    \left(
+      1+e^{i(\phi'-\phi)}
+    \right),
+\]
+independent of \(\tau\).  The common purification of the reduced transmitted
+state instead gives
+\[
+    \langle\chi_\phi|\chi_{\phi'}\rangle
+    =
+    1-\frac{\tau}{2}
+    +
+    \frac{\tau}{2}e^{i(\phi'-\phi)}.
+\]
+For opposite phases,
+\[
+    \langle\chi_\phi|\chi_{\phi+\pi}\rangle
+    =
+    1-\tau,
+\]
+whereas the global state including the physical loss port remains orthogonal.
+This explicitly shows why
+\[
+    \boxed{R\neq L.}
+\]
+
+\subsection{Where the average-photon-number bound belongs}
+\label{app:energy-bound-placement}
+
+The placement of the energy constraint is fixed by the physical location of
+the trusted monitor and by the variable used in the optimization.
+
+Let
+\[
+    M_X
+\]
+denote the photon number entering the trusted attenuator in arm \(X\), and
+let
+\[
+    N_X
+\]
+denote the photon number leaving it toward the untrusted node.  Pure loss of
+transmissivity \(\tau\) satisfies exactly
+\begin{equation}
+    \mathbb E[N_X]
+    =
+    \tau\mathbb E[M_X].
+    \label{eq:app-loss-first-moment}
+\end{equation}
+
+The convention used in the present notes is that
+\(\bar n\) is the total monitored mean photon number \emph{leaving} Alice's
+and Bob's laboratories after the trusted attenuation, with the symmetric
+per-arm bounds
+\begin{equation}
+    \mathbb E[N_A]
+    \le
+    \frac{\bar n}{2},
+    \qquad
+    \mathbb E[N_B]
+    \le
+    \frac{\bar n}{2}.
+    \label{eq:app-output-energy-bound}
+\end{equation}
+If Stage~2 is written in terms of the pre-attenuation distribution
+\(p_{m_A,m_B}\), Eq.~\eqref{eq:app-loss-first-moment} makes these equivalent
+to
+\begin{equation}
+    \sum_{m_A,m_B}
+      m_Ap_{m_A,m_B}
+    \le
+    \frac{\bar n}{2\tau},
+    \qquad
+    \sum_{m_A,m_B}
+      m_Bp_{m_A,m_B}
+    \le
+    \frac{\bar n}{2\tau}.
+    \label{eq:app-input-energy-bound}
+\end{equation}
+Thus the factor \(1/\tau\) does not represent an additional assumption.  It
+is simply the same post-attenuation monitored bound rewritten in the input
+variables.
+
+If instead the optimization is written in terms of the transmitted
+photon-number distribution \(q_{n_A,n_B}\), the natural constraints are
+directly
+\[
+    \sum_{n_A,n_B}n_Aq_{n_A,n_B}
+    \le\frac{\bar n}{2},
+    \qquad
+    \sum_{n_A,n_B}n_Bq_{n_A,n_B}
+    \le\frac{\bar n}{2}.
+\]
+Likewise, in Stage~3 the rescaled variables
+\[
+    u_X=\tau m_X
+\]
+give
+\begin{equation}
+    \int u_A\,d\nu
+    \le\frac{\bar n}{2},
+    \qquad
+    \int u_B\,d\nu
+    \le\frac{\bar n}{2}.
+    \label{eq:app-continuum-energy-bound}
+\end{equation}
+
+Hence the same physical constraint appears in three equivalent coordinate
+systems:
+\begin{equation}
+\boxed{
+    \mathbb E[N_X]\le\frac{\bar n}{2}
+    \quad\Longleftrightarrow\quad
+    \mathbb E[M_X]\le\frac{\bar n}{2\tau}
+    \quad\Longleftrightarrow\quad
+    \mathbb E[U_X]\le\frac{\bar n}{2}.
+}
+    \label{eq:app-energy-coordinate-equivalence}
+\end{equation}
+
+If the actual trusted monitor were placed \emph{before} the attenuator instead,
+then the certified physical statement would instead be a bound directly on
+\(\mathbb E[M_X]\), and the factors of \(\tau\) would have to be moved
+accordingly.  The formulas above therefore depend on the protocol convention
+that the monitored quantity is the outgoing energy after trusted attenuation.
+
+\subsubsection{Where the truncation tail charge belongs}
+
+There is a second, related placement issue.  In Stage~2 the rigorous
+photon-number cutoff is imposed on the \emph{input} variables:
+\[
+    S_N
+    =
+    \{(m_A,m_B):m_A+m_B\le N\}.
+\]
+If
+\[
+    \varepsilon_N
+    =
+    1-\sum_{S_N}p_{m_A,m_B},
+\]
+then every point in the discarded set obeys
+\[
+    m_A+m_B\ge N+1.
+\]
+Therefore the total input-energy relaxation
+\begin{equation}
+    \sum_{S_N}
+    (m_A+m_B)p_{m_A,m_B}
+    +(N+1)\varepsilon_N
+    \le
+    \frac{\bar n}{\tau}
+    \label{eq:app-input-tail-energy}
+\end{equation}
+is sound.
+
+The analogous statement is \emph{not} available for a tail defined only by
+omitted output photon numbers.  A very large input Fock component can be
+mapped by loss to any lower output photon number, including vacuum.  Thus
+input tail mass is not concentrated in a high-photon-number output tail.
+
+For the same reason, the common tail charge
+\((N+1)\varepsilon_N\) cannot be added separately to both per-arm constraints:
+a discarded point such as \((0,N+1)\) has zero Alice-arm photon number.  The
+tail charge is valid for the combined photon number because only
+\(m_A+m_B\) has a uniform lower bound on the triangular discarded set.
+
+The Stage-3 cell relaxation follows the same logic.  For upper bounds on a
+mean energy, each cell mass must be charged using a lower bound on the energy
+inside that cell.  If
+\[
+    \underline u_{X,j}
+    =
+    \inf_{u\in C_j}u_X,
+\]
+then
+\[
+    \sum_j\underline u_{X,j}q_j
+    \le
+    \frac{\bar n}{2}
+\]
+is an outer relaxation.  Charging each cell at its centre without a
+compensating error could instead exclude a physical measure and would therefore
+be unsafe.
+
+
 \end{document}
