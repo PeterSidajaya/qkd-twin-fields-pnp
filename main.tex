@@ -1122,89 +1122,135 @@ rigour statement of this section.
 \section{Stage 3: exact rescaling, continuum relaxation, and certified finite representation}
 \label{sec:stage3-rigorous}
 
-Stage~3 should be viewed as Stage~2 written at the natural scale of the
-\emph{delivered} energy.  There are three conceptually separate steps:
+Stage~3 is best understood as a sequence of representations of the same
+mean-energy information.  The starting Stage-2 source is an infinite discrete
+distribution \(p_{m_A,m_B}\) over the Fock lattice.  Because the trusted
+attenuation is very strong, the monitored post-attenuation energy
+\(\bar n\) corresponds to pre-attenuation photon numbers of order
+\(1/\tau\).  A direct Fock truncation must therefore become extremely large.
 
-\begin{enumerate}
-    \item the change of variables \(u_X=\tau m_X\), which is exact;
-    \item dropping the lattice restriction \(u_X\in\tau\mathbb Z_{\ge0}\),
-    which is a safe outer relaxation;
-    \item replacing the exact finite-\(\tau\) kernel \(K_\tau\) by its
-    strong-attenuation limit \(K_0\), which is rigorous only when the
-    finite-\(\tau\) error is carried explicitly as overlap slack.
-\end{enumerate}
-
-A fourth step is needed for computation: the continuum measure must be mapped
-to a finite-dimensional outer approximation.  A fixed support grid is
-\emph{not} sufficient for this.
+The conceptual chain is
+\begin{equation}
+\boxed{
+p_{m_A,m_B}
+\;\xrightarrow[\text{exact}]{u_X=\tau m_X}\;
+\nu_\tau
+\;\xrightarrow[\text{outer relaxation}]{\text{drop lattice support}}\;
+\nu
+\;\xrightarrow[\text{outer relaxation}]{\text{cell enclosure}}\;
+\{q_j\}_{j=1}^{J}.
+}
+\label{eq:stage3-chain}
+\end{equation}
+The same physical mean-energy bound is carried through this entire chain.
+Only the last two arrows enlarge the feasible set.
 
 \subsection{Exact push-forward from photon number to delivered energy}
 
-Define
+Let \(M_A,M_B\) denote the pre-attenuation photon numbers.  In Stage~2 the
+monitored outgoing mean-energy bounds are written in the input variables as
+\begin{equation}
+    \mathbb E[M_A]\le\frac{\bar n}{2\tau},
+    \qquad
+    \mathbb E[M_B]\le\frac{\bar n}{2\tau}.
+    \label{eq:stage3-input-energy}
+\end{equation}
+These are first-moment constraints only.  They do \emph{not} impose a hard
+photon-number cutoff: arbitrarily large \(m_X\) remain possible with
+sufficiently small probability.  Thus the informal phrase
+\emph{very large Fock grid} means that a numerical truncation would have to
+extend to the \(O(1/\tau)\) scale, and potentially beyond it to capture rare
+tails.
+
+Define the rescaled variables
 \begin{equation}
     u_A=\tau m_A,
     \qquad
     u_B=\tau m_B.
     \label{eq:stage3-rescaling}
 \end{equation}
-For a Stage-2 distribution \(p_{m_A,m_B}\), define the push-forward measure
+For a Stage-2 distribution \(p_{m_A,m_B}\), define its exact push-forward
+measure
 \begin{equation}
+    \boxed{
     \nu_\tau
     :=
     \sum_{m_A,m_B\ge0}
       p_{m_A,m_B}
       \delta_{(\tau m_A,\tau m_B)}.
+    }
     \label{eq:stage3-lattice-measure}
 \end{equation}
-This is a probability measure supported on
+It is supported on
 \[
     (\tau\mathbb Z_{\ge0})^2.
 \]
 No approximation has yet been made.
 
-The energy constraints become
-\begin{equation}
+The energy bound transforms exactly:
+\begin{align}
     \int u_A\,d\nu_\tau
+    &=
+    \tau\sum_{m_A,m_B}m_Ap_{m_A,m_B}
     \le\frac{\bar n}{2},
-    \qquad
+    \\
     \int u_B\,d\nu_\tau
-    \le\frac{\bar n}{2},
+    &=
+    \tau\sum_{m_A,m_B}m_Bp_{m_A,m_B}
+    \le\frac{\bar n}{2}.
     \label{eq:stage3-perarm-energy}
-\end{equation}
-and therefore
+\end{align}
+Hence
 \begin{equation}
     \int(u_A+u_B)\,d\nu_\tau
     \le\bar n.
     \label{eq:stage3-energy}
 \end{equation}
-The factor \(1/\tau\) has disappeared from the optimization variables.
+The factor \(1/\tau\) has disappeared because the natural Stage-3 variables
+are the delivered-energy variables \(u_X=\tau m_X\).
 
-\subsection{The kernel \(K_\tau\): conditional overlap at fixed delivered energy}
+\subsection{Exact finite-\texorpdfstring{\(\tau\)}{tau} kernel on the rescaled variables}
 
 For a state pair \(s,t\), define
 \[
-    a_X^{st}
+    \kappa_X^{st}
     :=
-    1-e^{i\Delta\phi_X^{st}}.
+    1-\tau+\tau e^{i\Delta\phi_X^{st}}
+    =
+    1-\tau a_X^{st},
+    \qquad
+    a_X^{st}:=1-e^{i\Delta\phi_X^{st}}.
 \]
-Using \(m_X=u_X/\tau\) in
-Eq.~\eqref{eq:stage2-exact-kernel}, define
+On the physical lattice,
+\[
+    (\kappa_A^{st})^{m_A}(\kappa_B^{st})^{m_B}
+\]
+is exactly the Stage-2 binomial-thinning kernel.
+
+For the strong-attenuation regime \(0<\tau<1/2\),
+\(\kappa_X^{st}\) lies in the open right half-plane, so the principal logarithm
+is unambiguous.  Define
 \begin{equation}
+    b_X^{st}
+    :=
+    \frac{1}{\tau}\Log\kappa_X^{st},
+    \qquad
     \boxed{
     K_\tau^{st}(u_A,u_B)
     :=
-    \prod_{X=A,B}
-    \left(
-      1-\tau a_X^{st}
-    \right)^{u_X/\tau}.
+    \exp\!\left[
+      b_A^{st}u_A+b_B^{st}u_B
+    \right].
     }
     \label{eq:stage3-finite-kernel}
 \end{equation}
-On the physical lattice this is just another notation for
+When \(u_X=\tau m_X\), this reduces exactly to
 \[
-    (z_A^{st})^{m_A}(z_B^{st})^{m_B}.
+    K_\tau^{st}(\tau m_A,\tau m_B)
+    =
+    (\kappa_A^{st})^{m_A}(\kappa_B^{st})^{m_B}.
 \]
-Hence the exact physical overlap is
+Therefore the exact physical overlap is
 \begin{equation}
     \boxed{
     \Lambda^{(\tau)}_{st}
@@ -1216,188 +1262,55 @@ Hence the exact physical overlap is
     \label{eq:stage3-exact-integral}
 \end{equation}
 
-Thus \(K_\tau^{st}(u)\) is the overlap contribution associated with a fixed
-scaled input energy \(u\), after exact binomial thinning at transmissivity
-\(\tau\).
-
-\subsection{The limiting kernel \(K_0\) and the mixed-Poisson picture}
-
-At fixed \(u_X\),
-\begin{align}
-    \frac{u_X}{\tau}
-    \log(1-\tau a_X)
-    &=
-    -u_Xa_X
-    -\frac12u_X\tau a_X^2
-    +O(u_X\tau^2).
-\end{align}
-Therefore
-\begin{equation}
-    \left(1-\tau a_X\right)^{u_X/\tau}
-    \longrightarrow
-    e^{-u_Xa_X}
+Because \(|\kappa_X^{st}|\le1\), one has
+\[
+    \Re b_X^{st}\le0,
     \qquad
-    (\tau\to0),
-\end{equation}
-and we define
+    |K_\tau^{st}(u)|\le1
+    \quad
+    (u_A,u_B\ge0).
+\]
+
+\subsection{Dropping the lattice while keeping the energy bound}
+
+Stage~3 now drops only the support condition
+\[
+    \operatorname{supp}\nu_\tau
+    \subset
+    (\tau\mathbb Z_{\ge0})^2
+\]
+and allows an arbitrary positive probability measure
+\[
+    \nu
+    \quad\text{on}\quad
+    \mathbb R_{\ge0}^2,
+\]
+while retaining the same first-moment constraints
 \begin{equation}
     \boxed{
-    K_0^{st}(u_A,u_B)
-    :=
-    \exp[
-      -u_Aa_A^{st}
-      -u_Ba_B^{st}
-    ].
+    \int u_A\,d\nu\le\frac{\bar n}{2},
+    \qquad
+    \int u_B\,d\nu\le\frac{\bar n}{2}.
     }
-    \label{eq:stage3-limit-kernel}
+    \label{eq:stage3-continuum-energy}
 \end{equation}
 
-This is exactly the characteristic-function kernel of independent Poisson
-variables conditioned on \(u_A,u_B\):
-\[
-    N_X|U_X=u_X
-    \sim
-    \operatorname{Poisson}(u_X),
-\]
-because
-\[
-    \mathbb E[e^{i\theta N_X}|U_X=u_X]
-    =
-    e^{-u_X(1-e^{i\theta})}.
-\]
-Thus the continuum model is a two-mode mixed-Poisson model:
-\[
-    (U_A,U_B)\sim\nu,
-\]
-followed conditionally by independent Poisson thinning in the two arms.
-The mixing variables \(U_A,U_B\) themselves may be arbitrarily correlated.
-
-A coherent-state photon-number law is the special case where \(\nu\) is a
-delta measure.  Strong attenuation does \emph{not} force an arbitrary source
-to become coherent; it makes each fixed-\(u\) component Poissonian while
-leaving Eve free to mix different \(u\)'s.
-
-\subsection{Rigorous finite-\(\tau\) replacement of \(K_\tau\) by \(K_0\)}
-
-The replacement \(K_\tau\mapsto K_0\) is not used as an uncontrolled
-approximation.  It is converted into a rigorous outer relaxation by bounding
-the kernel error.
-
-For \(\tau\le1/4\), \(|\tau a_X|\le1/2\), and
-\begin{equation}
-    |\log(1-w)+w|
-    \le|w|^2,
-    \qquad |w|\le\frac12.
-    \label{eq:stage3-log-bound}
-\end{equation}
-Write
-\[
-    K_\tau^{st}=K_0^{st}e^{\delta_{st}},
-\]
-with
-\[
-    \delta_{st}
-    =
-    \sum_X
-    \frac{u_X}{\tau}
-    \left[
-      \log(1-\tau a_X^{st})
-      +\tau a_X^{st}
-    \right].
-\]
-Since \(|a_X^{st}|\le2\),
-\begin{equation}
-    |\delta_{st}|
-    \le
-    4\tau(u_A+u_B).
-\end{equation}
-Also
-\[
-    |K_0^{st}|
-    =
-    e^{-\sum_Xu_X(1-\cos\Delta\phi_X^{st})}
-    \le1.
-\]
-Therefore
+Thus
 \begin{equation}
     \boxed{
-    |K_\tau^{st}-K_0^{st}|
-    \le
-    4\tau(u_A+u_B)
-    e^{4\tau(u_A+u_B)}.
-    }
-    \label{eq:stage3-pointwise-error}
-\end{equation}
-
-If the explicitly represented region obeys
-\[
-    u_A+u_B\le U,
-\]
-then
-\begin{align}
-    \left|
-      \int K_\tau^{st}\,d\nu
-      -
-      \int K_0^{st}\,d\nu
-    \right|
-    &\le
-    4\tau e^{4\tau U}
-    \int(u_A+u_B)d\nu
-    \nonumber\\
-    &\le
-    \boxed{
-      4\tau\bar n\,e^{4\tau U}
-    }.
-    \label{eq:stage3-integrated-error}
-\end{align}
-Thus the finite-\(\tau\) physical overlap is not set equal to the
-\(K_0\)-integral.  Instead the SDP allows
-\begin{equation}
-    \left|
-      \sum_zG[(z,s),(z,t)]
-      -
-      \int K_0^{st}\,d\nu
-    \right|
-    \le
-    \Delta_{\tau,st},
-    \label{eq:stage3-kernel-slack}
-\end{equation}
-where \(\Delta_{\tau,st}\) is any proven upper bound such as
-Eq.~\eqref{eq:stage3-integrated-error}, together with the other truncation
-slacks introduced below.
-
-This is the security point: the true finite-\(\tau\) overlap is guaranteed to
-lie inside the allowed disk.  Therefore replacing \(K_\tau\) by \(K_0\)
-\emph{with the certified slack} enlarges the feasible set and does not
-sacrifice the security proof.
-
-\subsection{Dropping the lattice is a separate safe relaxation}
-
-The exact physical measure \(\nu_\tau\) is supported on
-\((\tau\mathbb Z_{\ge0})^2\).  Stage~3 drops this support condition and
-allows any positive probability measure \(\nu\) on
-\(\mathbb R_{\ge0}^2\) satisfying the same moment constraints.
-
-Since every lattice measure is also a continuum measure,
-\begin{equation}
-    \boxed{
-    \{\nu_\tau\text{ on }(\tau\mathbb Z_{\ge0})^2\}
+    \{\text{physical lattice measures }\nu_\tau\}
     \subseteq
-    \{\nu\text{ on }\mathbb R_{\ge0}^2\}.
+    \{\text{continuum measures }\nu
+       \text{ satisfying \eqref{eq:stage3-continuum-energy}}\}.
     }
     \label{eq:stage3-lattice-inclusion}
 \end{equation}
-Hence this step gives Eve more freedom and is automatically safe:
-\[
-    e_{\rm ph}^{\rm lattice}
-    \le
-    e_{\rm ph}^{\rm continuum}.
-\]
-No small-\(\tau\) approximation is involved in this inclusion.
+This is a genuine outer relaxation: the energy budget is unchanged, but Eve
+is no longer required to place her probability mass on the
+\(\tau\)-spaced lattice.
 
-\subsection{The exact continuum optimization is measure-valued}
-
-After the two outer relaxations above, the formal Stage-3 problem is
+The exact finite-\(\tau\) kernel can be retained after this relaxation.  The
+formal continuum problem is therefore
 \begin{equation}
 \begin{aligned}
     \text{maximize}_{G,\nu}\quad&
@@ -1414,14 +1327,10 @@ After the two outer relaxations above, the formal Stage-3 problem is
     \qquad
     \int u_B\,d\nu\le\frac{\bar n}{2},
     \\
-    &\left|
-      \sum_zG[(z,s),(z,t)]
-      -
-      \int K_0^{st}(u)\,d\nu(u)
-    \right|
-    \le
-    \Delta_{\tau,st}
-    \quad\forall s,t,
+    &\sum_zG[(z,s),(z,t)]
+      =
+      \int K_\tau^{st}(u)\,d\nu(u)
+      \quad\forall s,t,
     \\
     &G[(z,s),(z,s)]
     =
@@ -1430,41 +1339,116 @@ After the two outer relaxations above, the formal Stage-3 problem is
 \end{aligned}
     \label{eq:stage3-measure-program}
 \end{equation}
-
-This is an infinite-dimensional convex conic problem: the Gram matrix is
-finite-dimensional, while \(\nu\) ranges over positive measures.  It is not
-yet an ordinary CVXPY SDP.
-
-However, the measure enters only through finitely many linear functionals:
-normalization, first moments, and the real and imaginary parts of
+The equality in Eq.~\eqref{eq:stage3-measure-program} is simply overlap
+conservation:
 \[
-    \int K_0^{st}\,d\nu.
+    \underbrace{\int K_\tau^{st}\,d\nu}_{\text{input overlap}}
+    =
+    \underbrace{\Lambda_{st}}_{\text{same overlap}}
+    =
+    \underbrace{\sum_zG[(z,s),(z,t)]}_{\text{after Eve's instrument}}.
 \]
-Therefore only a finite-dimensional moment vector is visible to the QKD SDP.
+The measure-valued program is convex, but infinite-dimensional.
 
-On a compact domain \(D\), the vector
+\subsection{The limiting kernel \(K_0\): useful interpretation, not required numerically}
+
+At fixed \(u_X\),
 \[
-    y=\int_D F(u)\,d\nu(u),
+    b_X^{st}
+    =
+    -a_X^{st}+O(\tau),
 \]
-with
+so
+\begin{equation}
+    K_\tau^{st}(u_A,u_B)
+    \longrightarrow
+    K_0^{st}(u_A,u_B)
+    :=
+    \exp[
+      -u_Aa_A^{st}
+      -u_Ba_B^{st}
+    ].
+    \label{eq:stage3-limit-kernel}
+\end{equation}
+The limiting kernel has the mixed-Poisson interpretation
+\[
+    N_X|U_X=u_X
+    \sim
+    \operatorname{Poisson}(u_X),
+\]
+because
+\[
+    \mathbb E[e^{i\theta N_X}|U_X=u_X]
+    =
+    e^{-u_X(1-e^{i\theta})}.
+\]
+Thus the continuum model is naturally interpreted as
+\[
+    (U_A,U_B)\sim\nu,
+\]
+followed conditionally by independent Poisson photon numbers in the two arms.
+The variables \(U_A,U_B\) may remain arbitrarily correlated.
+
+A coherent-state photon-number law corresponds to a delta measure in \(u\).
+Strong attenuation does \emph{not} force an arbitrary source to become
+coherent; an arbitrary mixing measure \(\nu\) remains.
+
+For the certified numerical implementation there is no need to replace
+\(K_\tau\) by \(K_0\): Eq.~\eqref{eq:stage3-finite-kernel} can be used
+directly.  If \(K_0\) is used for analytic estimates, the bound
+\begin{equation}
+    |K_\tau^{st}-K_0^{st}|
+    \le
+    4\tau(u_A+u_B)
+    e^{4\tau(u_A+u_B)}
+    \label{eq:stage3-pointwise-error}
+\end{equation}
+provides an explicit finite-\(\tau\) error.  On a region
+\(u_A+u_B\le U\),
+\begin{equation}
+    \left|
+      \int K_\tau^{st}\,d\nu
+      -
+      \int K_0^{st}\,d\nu
+    \right|
+    \le
+    4\tau\bar n\,e^{4\tau U}.
+    \label{eq:stage3-integrated-error}
+\end{equation}
+This \(K_0\)-replacement is therefore optional, not part of the preferred
+certified solver.
+
+\subsection{Only finitely many moments of \(\nu\) are visible to the SDP}
+
+Although \(\nu\) is infinite-dimensional, the QKD SDP sees it only through
+normalization, first moments, and the real and imaginary parts of finitely many
+kernel integrals
+\[
+    \int K_\tau^{st}\,d\nu.
+\]
+On a compact domain \(D\), define
 \[
     F(u)
     =
     \left(
       1,u_A,u_B,
-      \{\Re K_0^{st}(u),\Im K_0^{st}(u)\}_{s<t}
-    \right),
+      \{\Re K_\tau^{st}(u),\Im K_\tau^{st}(u)\}_{s<t}
+    \right).
 \]
-lies in the convex hull of \(\{F(u):u\in D\}\).  Standard convex-hull
-results imply that the same finite set of moments can be represented by a
-finite atomic measure.  The difficulty is not the existence of a finite
-atomic representation, but that the atom locations are unknown continuous
-variables; optimizing both weights and locations directly destroys the
-simple SDP structure.
+Then
+\[
+    y=\int_DF(u)\,d\nu(u)
+\]
+lies in the convex hull of \(\{F(u):u\in D\}\).  Standard convex-hull results
+therefore guarantee the existence of finite atomic representations of the
+visible moment vector.  However, the required atom locations are unknown
+continuous variables.  Optimizing their locations jointly with their weights
+does not preserve the simple finite SDP structure.  This is why a certified
+cell enclosure is useful.
 
 \subsection{Continuum tail truncation}
 
-For computation choose a compact region
+For computation choose
 \[
     D_U
     :=
@@ -1474,9 +1458,9 @@ and define
 \[
     \varepsilon_U
     :=
-    1-\nu(D_U).
+    \nu(D_U^c).
 \]
-Since every point outside \(D_U\) satisfies \(u_A+u_B>U\),
+Since every point outside \(D_U\) has \(u_A+u_B>U\),
 \begin{equation}
     \int_{D_U}(u_A+u_B)d\nu
     +
@@ -1485,162 +1469,154 @@ Since every point outside \(D_U\) satisfies \(u_A+u_B>U\),
     \bar n.
     \label{eq:stage3-tail-energy}
 \end{equation}
-The omitted overlap contribution obeys
+Because \(|K_\tau^{st}|\le1\),
 \begin{equation}
     \left|
-      \int_{D_U^c}K_0^{st}\,d\nu
+      \int_{D_U^c}K_\tau^{st}\,d\nu
     \right|
     \le
-    \varepsilon_U,
+    \varepsilon_U.
     \label{eq:stage3-tail-overlap}
 \end{equation}
-because \(|K_0^{st}|\le1\).
-
-The separate in-domain first-moment constraints
+The separate in-domain bounds
 \[
     \int_{D_U}u_A\,d\nu\le\frac{\bar n}{2},
     \qquad
     \int_{D_U}u_B\,d\nu\le\frac{\bar n}{2}
 \]
-remain valid by simply dropping the nonnegative tail contribution.  As in the
-Fock truncation, one cannot charge the same \(U\varepsilon_U\) separately to
-both arms.
+also remain valid by dropping the nonnegative tail contribution.  As before,
+the same \(U\varepsilon_U\) cannot be charged separately to both arms.
 
-\subsection{Why a fixed support grid is not a security bound}
+\subsection{Why a fixed support grid is an inner approximation}
 
-Suppose one chooses grid points
+A fixed-grid discretization assumes
 \[
-    \mathcal G=\{u^{(1)},\ldots,u^{(J)}\}
-\]
-and optimizes
-\[
-    \nu=\sum_{j=1}^{J}q_j\delta_{u^{(j)}}.
-\]
-This is computationally convenient because
-\[
-    \int K_0^{st}\,d\nu
+    \nu
     =
-    \sum_jq_jK_0^{st}(u^{(j)})
+    \sum_{j=1}^Jq_j\delta_{c_j}
 \]
-is linear in \(q_j\).
-
-But it restricts Eve:
+for predetermined support points \(c_j\).  It therefore restricts Eve:
 \[
     \{\text{grid-supported measures}\}
     \subset
     \{\text{all continuum measures}\}.
 \]
-Therefore
+Hence
 \begin{equation}
     e_{\rm ph}^{\rm grid}
     \le
     e_{\rm ph}^{\rm continuum},
     \label{eq:stage3-grid-inner}
 \end{equation}
-which is the wrong direction for a security upper bound.  A dense grid may be
-numerically accurate, but density by itself does not prove security.
+which is the wrong direction for a security upper bound.  A very dense grid
+may be a useful numerical diagnostic, but density alone does not certify it.
 
-This is the present logical limitation of the current Stage-3 numerical code.
-
-Figure~\ref{fig:stage3-cell-relaxation} summarizes the certified replacement:
-the finite variables are cell masses rather than point masses, and the
-within-cell variation is retained as an explicit outer-relaxation slack.
+Figure~\ref{fig:stage3-cell-relaxation} summarizes the corrected chain.  The
+first arrow carries the energy bound exactly from the large Fock lattice to
+the rescaled variables.  The second arrow drops only the lattice support.
+The final finite variables are cell masses, not point masses.
 
 \input{phase/stage3-cell-relaxation-figure.tex}
 
 \subsection{Certified finite-dimensional cell relaxation}
 
-A direct rigorous fix is to partition \(D_U\) into cells
+Partition the represented domain as
 \[
     D_U=\bigcup_{j=1}^{J}C_j
 \]
-and optimize only the cell masses
-\[
+and define
+\begin{equation}
+    \boxed{
     q_j:=\nu(C_j).
-\]
-Choose a representative point \(\bar u^{(j)}\in C_j\).  For each state pair,
-write
-\begin{align}
-    \int_{C_j}K_0^{st}(u)\,d\nu(u)
-    &=
-    q_jK_0^{st}(\bar u^{(j)})
-    +r_{st,j}.
-\end{align}
+    }
+    \label{eq:stage3-cell-mass}
+\end{equation}
+The variable \(q_j\) means that this amount of probability mass lies
+\emph{somewhere} inside \(C_j\).  It does not place that mass at any chosen
+point.
+
+Choose a representative \(c_j\in C_j\) only for evaluating the kernel.
+For each pair \(s,t\),
+\begin{equation}
+    \int_{C_j}K_\tau^{st}(u)\,d\nu(u)
+    =
+    q_jK_\tau^{st}(c_j)+r_{st,j}.
+    \label{eq:stage3-cell-decomposition}
+\end{equation}
 Since
 \[
-    \frac{\partial K_0^{st}}{\partial u_X}
+    \frac{\partial K_\tau^{st}}{\partial u_X}
     =
-    -a_X^{st}K_0^{st},
+    b_X^{st}K_\tau^{st},
 \]
-we have
+and \(|K_\tau^{st}|\le1\),
 \[
     \left|
-      \frac{\partial K_0^{st}}{\partial u_X}
+      \frac{\partial K_\tau^{st}}{\partial u_X}
     \right|
     \le
-    |a_X^{st}|.
+    |b_X^{st}|.
 \]
-Hence, for any \(u\in C_j\),
+Therefore, for every \(u\in C_j\),
 \begin{equation}
-    |K_0^{st}(u)-K_0^{st}(\bar u^{(j)})|
+    \boxed{
+    |K_\tau^{st}(u)-K_\tau^{st}(c_j)|
     \le
-    |a_A^{st}|\,|u_A-\bar u_A^{(j)}|
+    |b_A^{st}|\,|u_A-c_{A,j}|
     +
-    |a_B^{st}|\,|u_B-\bar u_B^{(j)}|.
+    |b_B^{st}|\,|u_B-c_{B,j}|.
+    }
     \label{eq:stage3-cell-bound}
 \end{equation}
-Define the cell enclosure radius
+Define
 \begin{equation}
     \delta_{st,j}
     :=
     \sup_{u\in C_j}
-    \left(
-      |a_A^{st}|\,|u_A-\bar u_A^{(j)}|
-      +
-      |a_B^{st}|\,|u_B-\bar u_B^{(j)}|
-    \right).
+    |K_\tau^{st}(u)-K_\tau^{st}(c_j)|.
     \label{eq:stage3-cell-radius}
 \end{equation}
-Then
+For a rectangular cell centered at \(c_j\) with half-widths
+\(h_{A,j},h_{B,j}\), one may use the computable bound
 \begin{equation}
+    \boxed{
+    \delta_{st,j}
+    \le
+    |b_A^{st}|h_{A,j}
+    +
+    |b_B^{st}|h_{B,j}.
+    }
+    \label{eq:stage3-rect-cell-radius}
+\end{equation}
+Then
+\[
     |r_{st,j}|
     \le
-    q_j\delta_{st,j},
-\end{equation}
-and summing over cells gives
-\begin{equation}
-    \left|
-      \int_{D_U}K_0^{st}\,d\nu
-      -
-      \sum_jq_jK_0^{st}(\bar u^{(j)})
-    \right|
-    \le
-    \sum_jq_j\delta_{st,j}.
-    \label{eq:stage3-cell-total-error}
-\end{equation}
+    q_j\delta_{st,j}.
+\]
 
-The certified finite overlap constraint is therefore
+Including the tail gives the certified overlap constraint
 \begin{equation}
 \boxed{
     \left|
       \sum_zG[(z,s),(z,t)]
       -
-      \sum_jq_jK_0^{st}(\bar u^{(j)})
+      \sum_jq_jK_\tau^{st}(c_j)
     \right|
     \le
     \sum_jq_j\delta_{st,j}
-    +
-    \Delta_{\tau,st}
     +
     \varepsilon_U.
 }
     \label{eq:stage3-certified-soc}
 \end{equation}
-The right-hand side is affine in the optimization variables and nonnegative,
-so Eq.~\eqref{eq:stage3-certified-soc} is an SOC constraint.
+The complex absolute value is a two-dimensional second-order-cone constraint,
+and the right-hand side is affine in the finite optimization variables.
 
-The energy constraints must be enclosed in the same safe direction.  For a
-cell \(C_j\), let
+\subsection{How the energy bound reaches the cell variables}
+
+The same mean-energy constraint must also be enclosed in the safe direction.
+Let
 \[
     \underline u_{A,j}
     :=
@@ -1650,31 +1626,90 @@ cell \(C_j\), let
     :=
     \inf_{u\in C_j}u_B.
 \]
-Every physical measure mapped to cell masses \(q_j\) satisfies
+Because
+\[
+    \underline u_{X,j}q_j
+    \le
+    \int_{C_j}u_X\,d\nu,
+\]
+every continuum measure satisfies
 \begin{equation}
+    \boxed{
     \sum_j\underline u_{A,j}q_j
     \le
     \frac{\bar n}{2},
     \qquad
     \sum_j\underline u_{B,j}q_j
     \le
-    \frac{\bar n}{2},
+    \frac{\bar n}{2}.
+    }
     \label{eq:stage3-cell-perarm-energy}
 \end{equation}
-and
+Together with
+\[
+    \sum_jq_j+\varepsilon_U=1,
+\]
+the triangular tail gives
 \begin{equation}
+    \boxed{
     \sum_j
     (\underline u_{A,j}+\underline u_{B,j})q_j
     +
     U\varepsilon_U
     \le
     \bar n.
+    }
     \label{eq:stage3-cell-total-energy}
 \end{equation}
-Using cell centers in these upper-energy constraints without compensating
-slack would again restrict the physical measure and would not be rigorous.
 
-The finite cell problem therefore obeys the desired inclusion
+Thus the energy bound has been transported through the whole chain:
+\begin{equation}
+\boxed{
+\mathbb E[M_X]\le\frac{\bar n}{2\tau}
+\;\Longrightarrow\;
+\int u_X\,d\nu_\tau\le\frac{\bar n}{2}
+\;\Longrightarrow\;
+\int u_X\,d\nu\le\frac{\bar n}{2}
+\;\Longrightarrow\;
+\sum_j\underline u_{X,j}q_j\le\frac{\bar n}{2}.
+}
+\label{eq:stage3-energy-chain}
+\end{equation}
+The first implication is an exact change of variables.  The middle step keeps
+the same moment bound while enlarging the allowed support.  The final step
+uses cell lower bounds and is again an outer relaxation.
+
+Using cell centers in the upper-energy constraints without compensating slack
+would be unsafe: a physical measure could sit near the lower edge of the cell
+and be incorrectly excluded.
+
+\subsection{Proof of the outer-approximation direction}
+
+Take any feasible continuum measure \(\nu\).  Define
+\[
+    q_j=\nu(C_j),
+    \qquad
+    \varepsilon_U=\nu(D_U^c).
+\]
+Then normalization and
+Eqs.~\eqref{eq:stage3-cell-perarm-energy}--\eqref{eq:stage3-cell-total-energy}
+follow directly from positivity and the lower bounds on each cell.  Moreover,
+\begin{align}
+    \int K_\tau^{st}\,d\nu
+    &=
+    \sum_jq_jK_\tau^{st}(c_j)
+    +
+    \sum_jr_{st,j}
+    +
+    r_{st}^{\rm tail},
+\end{align}
+with
+\[
+    |r_{st,j}|\le q_j\delta_{st,j},
+    \qquad
+    |r_{st}^{\rm tail}|\le\varepsilon_U.
+\]
+Therefore every continuum-feasible point maps to a finite feasible point, so
 \begin{equation}
     \boxed{
     \mathcal F_{\rm physical}
@@ -1697,22 +1732,22 @@ Consequently
     \label{eq:stage3-objective-chain}
 \end{equation}
 
-Refining the cells should tighten the certified upper bound from above.  Thus
-a useful numerical validation is to verify a monotone or approximately
-monotone sequence
-\[
-    e_{\rm ph}^{\rm coarse}
-    \ge
-    e_{\rm ph}^{\rm medium}
-    \ge
-    e_{\rm ph}^{\rm fine}.
-\]
+This is the precise sense in which the finite cell calculation is a certified
+outer approximation.  The finite problem is deliberately allowed to contain
+some points that do not correspond to any actual continuum measure.
+
+\begin{remark}[Cell refinement and monotonicity]
+Shrinking the cells reduces the local radii \(\delta_{st,j}\), but the simple
+independent-disk relaxations at two different resolutions are not
+automatically nested.  Therefore a strictly monotone sequence
+\(e_{\rm ph}^{\rm coarse}\ge e_{\rm ph}^{\rm fine}\) is not a theorem for the
+bare cell construction.  If a guaranteed monotone hierarchy is desired,
+retain the parent-cell constraints when introducing the child cells.
+\end{remark}
 
 \subsection{Alternative computational route: adaptive exchange}
 
-The cell relaxation is the simplest route for the present project because it
-stays close to the existing CVXPY implementation.  A potentially more
-efficient alternative is a semi-infinite exchange method:
+A potentially more efficient alternative is a semi-infinite exchange method:
 
 \begin{enumerate}
     \item solve a finite SDP on a current set of support points;
@@ -1724,10 +1759,10 @@ efficient alternative is a semi-infinite exchange method:
 
 Because \(u=(u_A,u_B)\) is only two-dimensional, this may eventually be
 attractive.  Rigour would require a certified global solution of the
-continuous separation problem.  The cell-enclosure route is therefore the
+continuous separation problem.  The cell-enclosure route remains the
 preferred first implementation.
 
-\subsection{Mixed-Poisson moments and the concentration freedom}
+\subsection{Mixed-Poisson moments and concentration freedom}
 
 For one arm in the limiting model,
 \[
@@ -1741,9 +1776,9 @@ Hence
     \qquad
     \mathbb E[N(N-1)]
     =
-    \mathbb E[U^2].
+    \mathbb E[U^2],
 \]
-Therefore
+and
 \begin{equation}
     g^{(2)}
     =
@@ -1758,7 +1793,7 @@ rare-bright-pulse freedom already visible in Stage~1.
 
 \subsection{Status of the present Stage-3 numerics}
 
-At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), the current fixed-grid scan is
+At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), the current fixed-support scan is
 largest near
 \[
     \bar n\simeq0.1,
@@ -1767,13 +1802,11 @@ largest near
     \qquad
     R\simeq7\times10^{-3}.
 \]
-These numbers are useful diagnostics, but the current code places \(\nu\)
-only on predetermined logarithmic support points and is therefore an inner
-approximation of the continuum measure problem.  They should not yet be
-presented as certified security upper bounds.  The next numerical task is to
-replace that support restriction by the cell relaxation
-Eq.~\eqref{eq:stage3-certified-soc} and check how much the bound moves.
-
+These values remain useful diagnostics, but a fixed support is an inner
+approximation of the continuum problem.  The certified implementation should
+instead use Eq.~\eqref{eq:stage3-certified-soc}, preferably with the exact
+finite-\(\tau\) kernel \(K_\tau\), and compare the resulting outer bound with
+the old diagnostic values.
 
 \section{Concentration attack: rigorous inequality and heuristic saturation}
 \label{sec:concentration-rigorous}
