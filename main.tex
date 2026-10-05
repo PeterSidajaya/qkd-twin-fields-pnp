@@ -1793,7 +1793,7 @@ rare-bright-pulse freedom already visible in Stage~1.
 
 \subsection{Status of the present Stage-3 numerics}
 
-At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), the current fixed-support scan is
+At \(\tau=10^{-6}\), \(M=4\), and \(L=0\), the earlier fixed-support scan was
 largest near
 \[
     \bar n\simeq0.1,
@@ -1802,11 +1802,18 @@ largest near
     \qquad
     R\simeq7\times10^{-3}.
 \]
-These values remain useful diagnostics, but a fixed support is an inner
-approximation of the continuum problem.  The certified implementation should
-instead use Eq.~\eqref{eq:stage3-certified-soc}, preferably with the exact
-finite-\(\tau\) kernel \(K_\tau\), and compare the resulting outer bound with
-the old diagnostic values.
+Those numbers remain useful historical diagnostics, but the fixed-support
+calculation is an inner approximation of the continuum problem and is not a
+security certificate.
+
+The code \texttt{phase/pnp-stage-3.py} now implements the certified cell
+outer relaxation of Eq.~\eqref{eq:stage3-certified-soc} using the exact
+finite-\(\tau\) kernel \(K_\tau\), explicit cell masses
+\(q_j=\nu(C_j)\), lower-bound energy charges, and a continuum-tail variable.
+The remaining numerical task is to benchmark this certified outer bound
+against the older fixed-support values, study cell refinement, and control
+solver tolerances.  Until those scans are rerun, the numerical values quoted
+above should still be read only as diagnostics.
 
 \section{Concentration attack: rigorous inequality and heuristic saturation}
 \label{sec:concentration-rigorous}
@@ -2106,16 +2113,19 @@ distance & \(e_{\rm ph}\) & \(R\) \\
 
 \begin{remark}[Rigour status of Stages 1--4]
 The exact overlap identities, Stage~1 tail relaxation, attenuation kernel,
-covariance/common-purification construction, finite-\(\tau\) continuum error,
-mixed-Poisson moment identities, and ideal-monitor support implications above
-have explicit derivations, including the general untrusted-source derivation
-of the phase-error objective in Section~\ref{sec:a7-general}. Two ingredients
-are not yet certified: (i) the replacement of the continuum by a finite
-numerical grid unless the cell-enclosure slack in
-Eq.~\eqref{eq:stage3-cell-bound} is implemented; and (ii) the conversion of a
-real finite-resolution energy monitor into a quantitative
-\(\epsilon_{\rm mon}\) bound. The current Stage~3--4 rate and range numbers
-should be read with those qualifications.
+covariance/common-purification construction, mixed-Poisson moment identities,
+and ideal-monitor support implications above have explicit derivations,
+including the general untrusted-source derivation of the phase-error objective
+in Section~\ref{sec:a7-general}.  The Stage-3 continuum-to-finite step is now
+implemented as the certified cell outer relaxation of
+Eq.~\eqref{eq:stage3-certified-soc}, with the exact finite-\(\tau\) kernel.
+What remains on the Stage-3 side is numerical validation of refinement and
+solver tolerances, not the direction of the discretisation itself.  The main
+unresolved physical ingredient for Stage~4 is the conversion of a real
+finite-resolution energy monitor into a quantitative
+\(\epsilon_{\rm mon}\) bound and its conditioning argument.  The older
+Stage~3--4 rate and range numbers predate the certified cell implementation
+and should be read with that qualification.
 \end{remark}
 
 
@@ -2129,11 +2139,11 @@ The main unresolved items are:
     mixing measure for accepted rounds is supported inside the chosen energy
     window. This should be derived carefully as part of the security proof.
 
-    \item \textbf{Certify the continuum discretisation.}
-    The present logarithmic \(u\)-grid restricts the mixing measure to a
-    finite support and is therefore an inner approximation. Implement the
-    cell-wise enclosure of Eq.~\eqref{eq:stage3-cell-bound} so that every
-    continuous mixing measure maps to a feasible finite-dimensional point.
+    \item \textbf{Benchmark the certified Stage-3 cell relaxation.}
+    The cell-wise outer approximation is now implemented in
+    \texttt{pnp-stage-3.py}.  Rerun the Stage-3 scans, compare them with the
+    historical fixed-support values, refine the partition, and quantify the
+    residual numerical looseness and solver tolerance.
 
     \item \textbf{Solver accuracy.}
     The strongest continuum/window calculations currently return
