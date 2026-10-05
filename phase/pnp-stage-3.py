@@ -303,10 +303,14 @@ def kernel_and_cell_radii(phases, pairs, cells, t2):
         bB = exact_kernel_coeff(dB, t2)
 
         K[i, :] = np.exp(bA * C[:, 0] + bB * C[:, 1])
-        delta[i, :] = (
+        deriv_bound = (
             abs(bA) * R[:, 0]
             + abs(bB) * R[:, 1]
         )
+        # Also |K(u)-K(c)| <= |K(u)|+|K(c)| <= 2.  Taking the
+        # smaller of the two proven bounds can materially tighten large
+        # high-energy cells without changing the outer-approximation proof.
+        delta[i, :] = np.minimum(2.0, deriv_bound)
 
     return K, delta
 
@@ -453,7 +457,7 @@ def solve_eph(M, n_bar, L, t2=T2, solver=None, solver_opts=None):
 
     if solver_opts:
         opts = {**opts, **solver_opts}
-    if solver is not cp.MOSEK:
+    if solver != cp.MOSEK:
         opts.pop("mosek_params", None)
 
     prob.solve(solver=solver, **opts)
