@@ -1,0 +1,151 @@
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+    >=Latex,
+    font=\small,
+    axis/.style={->,thick},
+    domain/.style={draw=blue!65!black,thick,fill=blue!5},
+    cell/.style={draw=black!45,thin},
+    hilite/.style={draw=green!50!black,thick,fill=green!18},
+    note/.style={rounded corners,draw=black!40,fill=white,inner sep=4pt,align=center}
+]
+
+% ------------------------------------------------------------------
+% Left panel: continuum measure
+% ------------------------------------------------------------------
+\node[font=\bfseries] at (2.0,4.65) {Continuum measure};
+
+\draw[axis] (0,0) -- (4.45,0) node[right] {$u_A$};
+\draw[axis] (0,0) -- (0,4.45) node[above] {$u_B$};
+\draw[domain] (0,0) -- (0,4) -- (4,0) -- cycle;
+\node[anchor=east] at (-0.08,4) {$U$};
+\node[anchor=north] at (4,-0.08) {$U$};
+\node[anchor=north east] at (-0.05,-0.05) {$0$};
+
+% A schematic non-atomic measure cloud
+\fill[blue!35,opacity=.28] (1.15,1.15) circle (0.72);
+\fill[cyan!55,opacity=.24] (1.55,0.82) circle (0.58);
+\fill[orange!65,opacity=.20] (0.85,1.55) circle (0.48);
+\fill[blue!55,opacity=.18] (2.35,0.72) circle (0.42);
+\node[align=center] at (1.25,2.30)
+    {$\nu$ arbitrary on\\[-1mm] $D_U=\{u_A+u_B\le U\}$};
+
+\node[note,text width=4.15cm] at (2.05,-1.05)
+    {$\displaystyle
+      \Lambda_{st}
+      =\int_{D_U} K_{\tau}^{st}(u)\,d\nu(u)
+      +r^{\rm tail}_{st}$\\
+     $\displaystyle |r^{\rm tail}_{st}|\le\varepsilon$};
+
+% Transition arrow
+\draw[->,very thick,gray!65] (4.85,2.0) -- (6.10,2.0);
+\node[align=center,text=black!70] at (5.48,2.55)
+    {\footnotesize partition\\[-1mm]\footnotesize into cells};
+
+% ------------------------------------------------------------------
+% Right panel: cell masses
+% ------------------------------------------------------------------
+\begin{scope}[xshift=6.55cm]
+\node[font=\bfseries] at (2.0,4.65) {Finite cell variables};
+
+\draw[axis] (0,0) -- (4.45,0) node[right] {$u_A$};
+\draw[axis] (0,0) -- (0,4.45) node[above] {$u_B$};
+\draw[domain] (0,0) -- (0,4) -- (4,0) -- cycle;
+\node[anchor=east] at (-0.08,4) {$U$};
+\node[anchor=north] at (4,-0.08) {$U$};
+\node[anchor=north east] at (-0.05,-0.05) {$0$};
+
+% Grid, clipped to triangular domain
+\begin{scope}
+\clip (0,0) -- (0,4) -- (4,0) -- cycle;
+\foreach \x in {0.8,1.6,2.4,3.2}
+    \draw[cell] (\x,0) -- (\x,4);
+\foreach \y in {0.8,1.6,2.4,3.2}
+    \draw[cell] (0,\y) -- (4,\y);
+\end{scope}
+
+% Highlight one complete cell
+\filldraw[hilite] (0.8,0.8) rectangle (1.6,1.6);
+\node at (1.04,1.40) {$C_j$};
+\fill[black] (1.20,1.20) circle (1.5pt);
+\node[anchor=west] at (1.27,1.19) {$c_j$};
+
+% Show that the actual mass need not sit at c_j
+\fill[green!45!black] (0.94,0.98) circle (1.1pt);
+\fill[green!45!black] (1.48,1.08) circle (1.1pt);
+\fill[green!45!black] (1.36,1.48) circle (1.1pt);
+
+\node[note,text width=3.15cm] (massnote) at (2.85,2.85)
+    {$q_j:=\nu(C_j)$\\[1mm]
+     mass may lie anywhere in $C_j$};
+\draw[->,green!45!black,thick]
+    (massnote.south west) .. controls (2.25,2.25) and (1.85,1.75) .. (1.53,1.47);
+
+\node[note,text width=4.35cm] at (2.05,-1.05)
+    {$\displaystyle
+      \int_{C_j}K_{\tau}^{st}(u)\,d\nu(u)
+      =q_jK_{\tau}^{st}(c_j)+r_{st,j}$\\
+     $\displaystyle |r_{st,j}|\le q_j\delta_{st,j}$};
+\end{scope}
+
+% ------------------------------------------------------------------
+% Certified global constraint
+% ------------------------------------------------------------------
+\node[
+    rounded corners,
+    draw=orange!65!black,
+    fill=orange!6,
+    inner sep=7pt,
+    text width=11.2cm,
+    align=center
+] at (5.30,-2.55)
+{
+\[
+\left|
+\sum_z G[(z,s),(z,t)]
+-
+\sum_j q_j K_{\tau}^{st}(c_j)
+\right|
+\le
+\sum_j q_j\delta_{st,j}
++\varepsilon ,
+\qquad
+\delta_{st,j}\ge
+\sup_{u\in C_j}
+\left|K_{\tau}^{st}(u)-K_{\tau}^{st}(c_j)\right|.
+\]
+};
+
+\node[
+    rounded corners,
+    draw=green!45!black,
+    fill=green!5,
+    inner sep=5pt,
+    text width=10.7cm,
+    align=center
+] at (5.30,-3.95)
+{
+Every continuum measure maps to feasible cell variables:
+\[
+q_j=\nu(C_j),
+\qquad
+\varepsilon=\nu(D_U^c),
+\qquad
+\mathcal F_{\rm continuum}\subseteq\mathcal F_{\rm cell}.
+\]
+The representative points \(c_j\) are only used to evaluate the kernel;
+they are \emph{not} imposed support points of \(\nu\).
+};
+
+\end{tikzpicture}
+\caption{Schematic of the certified continuum-to-cell relaxation in Stage~3.
+The continuum measure is replaced by cell masses \(q_j=\nu(C_j)\), not by
+point masses at the representatives \(c_j\).  The variables
+\(\delta_{st,j}\) bound the possible kernel variation within each cell, while
+\(\varepsilon\) bounds the omitted tail.  Consequently every feasible
+continuum measure produces a feasible point of the finite conic program,
+which is the required outer-approximation direction.  The figure is written
+with the exact finite-\(\tau\) kernel \(K_\tau\); the same construction applies
+to the limiting kernel \(K_0\).}
+\label{fig:stage3-cell-relaxation}
+\end{figure}
