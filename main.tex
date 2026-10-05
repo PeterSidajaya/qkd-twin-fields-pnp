@@ -3,6 +3,8 @@
 \usepackage[margin=1in]{geometry}
 \usepackage{amsmath,amssymb,bm,amsthm}
 \usepackage{booktabs}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
 \usepackage{microtype}
 \usepackage[hidelinks]{hyperref}
 
@@ -1539,6 +1541,12 @@ which is the wrong direction for a security upper bound.  A dense grid may be
 numerically accurate, but density by itself does not prove security.
 
 This is the present logical limitation of the current Stage-3 numerical code.
+
+Figure~\ref{fig:stage3-cell-relaxation} summarizes the certified replacement:
+the finite variables are cell masses rather than point masses, and the
+within-cell variation is retained as an explicit outer-relaxation slack.
+
+\input{phase/stage3-cell-relaxation-figure.tex}
 
 \subsection{Certified finite-dimensional cell relaxation}
 
