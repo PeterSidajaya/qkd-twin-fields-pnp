@@ -19,9 +19,15 @@ The physical mean-energy bound is carried through the same chain:
         -->  sum_j lower_u_{X,j} q_j <= n_bar/2.
 
 The first arrow is exact. Dropping the lattice support is an outer
-relaxation. The final cell representation is also an outer relaxation:
-q_j is the mass somewhere inside cell C_j, not a point mass at a chosen
-representative c_j.
+relaxation. The final cell representation is also an outer relaxation.  Besides the
+cell mass
+    q_j = nu(C_j),
+we retain the cell first moments
+    xA_j = integral_{C_j} u_A dnu,
+    xB_j = integral_{C_j} u_B dnu.
+Thus the monitored mean energy is represented directly rather than charged
+only at a cell lower edge.  The representative c_j is used only to linearize
+the kernel; it is not an imposed support point.
 
 For each state pair s,t the exact finite-tau continuum extension is
 
@@ -32,23 +38,27 @@ For each state pair s,t the exact finite-tau continuum extension is
       = Log(1 - tau + tau exp(i Delta phi_X^{st})) / tau.
 
 It agrees exactly with the physical binomial-thinning kernel on the lattice.
-For a representative c_j in cell C_j,
+For a representative c_j in cell C_j, write Delta u = u-c_j and
+z = b_A Delta u_A + b_B Delta u_B.  We retain the first-order term exactly:
 
     integral_{C_j} K_tau dnu
-      = q_j K_tau(c_j) + r_{st,j},
+      = K_tau(c_j) [
+            q_j
+          + b_A (xA_j - cA_j q_j)
+          + b_B (xB_j - cB_j q_j)
+        ]
+        + r_{st,j}.
 
-with
+If rho_{st,j} >= sup_{u in C_j} |z|, then
 
-    |r_{st,j}| <= q_j delta_{st,j},
+    |r_{st,j}|
+      <= q_j * (rho_{st,j}^2 / 2) * exp(rho_{st,j}).
 
-where delta_{st,j} rigorously bounds the kernel variation over the whole
-cell. The omitted continuum tail outside D_U = {u_A+u_B <= U_MAX} contributes
-at most eps_tail because |K_tau| <= 1.
+This is second order in the cell diameter.  The omitted continuum tail outside
+D_U = {u_A+u_B <= U_MAX} contributes at most eps_tail because |K_tau| <= 1.
 
-Hence the finite SOC constraint is
-
-    | sum_z G[(z,s),(z,t)] - sum_j q_j K_tau^{st}(c_j) |
-       <= sum_j q_j delta_{st,j} + eps_tail + SLACK_FLOOR.
+Hence the finite SOC constraint uses the lifted linearized cell overlap plus
+the certified second-order remainder and tail slack.
 
 Every feasible continuum measure maps to a feasible point of this finite
 problem, so maximizing the phase error gives a certified outer bound.
@@ -207,7 +217,8 @@ def build_cells(u_max=U_MAX, n_u=N_U, cell_min=CELL_MIN):
       center : a representative point c_j inside the clipped polygon,
       lower  : coordinate-wise lower bounds on the whole cell,
       upper  : coordinate-wise upper bounds on the whole cell,
-      radius : max coordinate deviations from c_j over the cell.
+      radius : max coordinate deviations from c_j over the cell,
+      sum_lower / sum_upper : min/max of u_A+u_B over the cell.
 
     The representative is only used to evaluate K_tau. It is NOT a support
     restriction on the continuum measure.
@@ -219,6 +230,8 @@ def build_cells(u_max=U_MAX, n_u=N_U, cell_min=CELL_MIN):
     uppers = []
     radii = []
     polygons = []
+    sum_lowers = []
+    sum_uppers = []
 
     for ia in range(len(edges) - 1):
         x0, x1 = edges[ia], edges[ia + 1]
@@ -249,6 +262,9 @@ def build_cells(u_max=U_MAX, n_u=N_U, cell_min=CELL_MIN):
             uppers.append(hi)
             radii.append(rad)
             polygons.append(verts)
+            sums = np.sum(verts, axis=1)
+            sum_lowers.append(np.min(sums))
+            sum_uppers.append(np.max(sums))
 
     if not centers:
         raise RuntimeError("Cell construction produced no cells.")
@@ -259,6 +275,8 @@ def build_cells(u_max=U_MAX, n_u=N_U, cell_min=CELL_MIN):
         "upper": np.asarray(uppers),
         "radius": np.asarray(radii),
         "polygons": polygons,
+        "sum_lower": np.asarray(sum_lowers),
+        "sum_upper": np.asarray(sum_uppers),
         "edges": edges,
     }
 
@@ -277,23 +295,41 @@ def exact_kernel_coeff(dphi, t2):
     return np.log1p(t2 * (np.exp(1j * dphi) - 1.0)) / t2
 
 
-def kernel_and_cell_radii(phases, pairs, cells, t2):
+def kernel_linearization_data(phases, pairs, cells, t2):
     """
-    Return:
-      K[pair, cell]      = K_tau^{st}(c_j)
-      delta[pair, cell]  >= sup_{u in C_j} |K_tau^{st}(u)-K_tau^{st}(c_j)|
+    Data for the lifted first-order cell enclosure.
 
-    We use the global derivative bound
-        |partial_{u_X} K_tau| <= |b_X|
-    because |K_tau| <= 1. Hence
-        delta <= |b_A| radius_A + |b_B| radius_B.
+    Returns:
+      K[pair, cell]       = K_tau^{st}(c_j)
+      KA[pair, cell]      = K_tau^{st}(c_j) b_A^{st}
+      KB[pair, cell]      = K_tau^{st}(c_j) b_B^{st}
+      rem[pair, cell]     certified second-order remainder coefficient
+
+    For Delta u = u-c_j and
+        z = b_A Delta u_A + b_B Delta u_B,
+    Taylor's formula gives
+        K(u) = K(c_j) [1 + z] + R(u),
+    with
+        |R(u)| <= |K(c_j)| |z|^2 exp(|z|)/2
+               <= |z|^2 exp(|z|)/2.
+
+    We compute
+        rho_j = max_{u in C_j} |z|
+    by checking the polygon vertices.  Since |z| is a convex function of u,
+    its maximum on a convex polygon is attained at an extreme point.
+
+    A second independent bound is
+        |R(u)| <= |K(u)| + |K(c_j)|(1+|z|) <= 2 + rho_j.
+    We take the smaller of the two proven bounds.
     """
     C = cells["center"]
-    R = cells["radius"]
+    polygons = cells["polygons"]
     NC = len(C)
 
     K = np.empty((len(pairs), NC), dtype=complex)
-    delta = np.empty((len(pairs), NC), dtype=float)
+    KA = np.empty((len(pairs), NC), dtype=complex)
+    KB = np.empty((len(pairs), NC), dtype=complex)
+    rem = np.empty((len(pairs), NC), dtype=float)
 
     for i, (s1, s2) in enumerate(pairs):
         dA = phases[s2][0] - phases[s1][0]
@@ -302,18 +338,20 @@ def kernel_and_cell_radii(phases, pairs, cells, t2):
         bA = exact_kernel_coeff(dA, t2)
         bB = exact_kernel_coeff(dB, t2)
 
-        K[i, :] = np.exp(bA * C[:, 0] + bB * C[:, 1])
-        deriv_bound = (
-            abs(bA) * R[:, 0]
-            + abs(bB) * R[:, 1]
-        )
-        # Also |K(u)-K(c)| <= |K(u)|+|K(c)| <= 2.  Taking the
-        # smaller of the two proven bounds can materially tighten large
-        # high-energy cells without changing the outer-approximation proof.
-        delta[i, :] = np.minimum(2.0, deriv_bound)
+        K_i = np.exp(bA * C[:, 0] + bB * C[:, 1])
+        K[i, :] = K_i
+        KA[i, :] = K_i * bA
+        KB[i, :] = K_i * bB
 
-    return K, delta
+        for j, verts in enumerate(polygons):
+            du = verts - C[j]
+            z = bA * du[:, 0] + bB * du[:, 1]
+            rho = float(np.max(np.abs(z)))
+            taylor_bound = 0.5 * rho * rho * math.exp(min(rho, 50.0))
+            crude_bound = 2.0 + rho
+            rem[i, j] = min(taylor_bound, crude_bound)
 
+    return K, KA, KB, rem
 
 # --------------------------------------------------------------------------
 # SDP
@@ -361,38 +399,58 @@ def solve_eph(M, n_bar, L, t2=T2, solver=None, solver_opts=None):
     cells = build_cells()
     center = cells["center"]
     lower = cells["lower"]
+    upper = cells["upper"]
+    sum_lower = cells["sum_lower"]
+    sum_upper = cells["sum_upper"]
     NC = len(center)
 
     q = cp.Variable(NC, nonneg=True)
+    xA = cp.Variable(NC, nonneg=True)
+    xB = cp.Variable(NC, nonneg=True)
     eps_tail = cp.Variable(nonneg=True)
 
     cons.append(cp.sum(q) + eps_tail == 1.0)
 
-    # The monitored energy bound is carried into the cell variables using
-    # coordinate-wise LOWER bounds. This is the safe direction for an upper
-    # bound on a mean: every true continuum measure automatically satisfies
-    # these inequalities.
-    cons.append(lower[:, 0] @ q <= n_bar / 2)
-    cons.append(lower[:, 1] @ q <= n_bar / 2)
+    # xA_j and xB_j are the exact first moments carried by cell C_j:
+    #
+    #   xA_j = integral_{C_j} u_A dnu,
+    #   xB_j = integral_{C_j} u_B dnu.
+    #
+    # Because each clipped cell is convex, its conditional barycentre lies
+    # inside the same cell. The following perspective constraints are
+    # therefore obeyed by every physical continuum measure.
+    cons += [
+        xA >= cp.multiply(lower[:, 0], q),
+        xA <= cp.multiply(upper[:, 0], q),
+        xB >= cp.multiply(lower[:, 1], q),
+        xB <= cp.multiply(upper[:, 1], q),
+        xA + xB >= cp.multiply(sum_lower, q),
+        xA + xB <= cp.multiply(sum_upper, q),
+    ]
+
+    # The in-domain mean energy is now represented directly, rather than
+    # through a lower-edge surrogate.
+    cons.append(cp.sum(xA) <= n_bar / 2)
+    cons.append(cp.sum(xB) <= n_bar / 2)
 
     # Outside D_U every point obeys u_A+u_B > U_MAX, so the tail can be
     # charged by U_MAX against the combined energy budget. It cannot be
     # charged separately to both arms.
     cons.append(
-        (lower[:, 0] + lower[:, 1]) @ q
-        + U_MAX * eps_tail
-        <= n_bar
+        cp.sum(xA + xB) + U_MAX * eps_tail <= n_bar
     )
 
     # ------------------------------------------------------------------
-    # Exact finite-tau overlap kernel and cell-variation enclosure
+    # Exact finite-tau kernel with lifted first-order cell enclosure
 
     pairs = [
         (s1, s2)
         for s1 in range(NS)
         for s2 in range(s1 + 1, NS)
     ]
-    K, delta = kernel_and_cell_radii(phases, pairs, cells, t2)
+    K, KA, KB, rem = kernel_linearization_data(
+        phases, pairs, cells, t2
+    )
 
     terms = []
     for z in (Z_P, Z_M, Z_F):
@@ -410,16 +468,22 @@ def solve_eph(M, n_bar, L, t2=T2, solver=None, solver_opts=None):
         terms.append(cp.multiply(np.asarray(mask), G[rows, cols]))
 
     gram_overlap = sum(terms)
-    cell_overlap = K @ q
+
+    # Lifted first-order model:
+    #
+    # integral_{C_j} K dnu
+    #   = K(c_j) q_j
+    #     + K(c_j)b_A (xA_j-cA_j q_j)
+    #     + K(c_j)b_B (xB_j-cB_j q_j)
+    #     + remainder.
+    dA = xA - cp.multiply(center[:, 0], q)
+    dB = xB - cp.multiply(center[:, 1], q)
+    cell_overlap = K @ q + KA @ dA + KB @ dB
     diff = gram_overlap - cell_overlap
 
-    # For each pair:
-    #   |diff_st|
-    #     <= sum_j q_j delta_{st,j} + eps_tail + SLACK_FLOOR.
-    #
-    # The first term covers arbitrary placement of each q_j inside C_j.
+    # The within-cell remainder is second order in the cell diameter.
     # eps_tail covers the omitted continuum tail because |K_tau| <= 1.
-    slack = delta @ q + eps_tail + SLACK_FLOOR
+    slack = rem @ q + eps_tail + SLACK_FLOOR
 
     resid = cp.vstack([cp.real(diff), cp.imag(diff)]).T
     cons.append(cp.norm(resid, 2, axis=1) <= slack)
@@ -469,8 +533,8 @@ def solve_eph(M, n_bar, L, t2=T2, solver=None, solver_opts=None):
                 "n_cells": NC,
                 "eps_tail": None,
                 "cell_mass": None,
-                "lower_mean_A": None,
-                "lower_mean_B": None,
+                "mean_A_in": None,
+                "mean_B_in": None,
             },
         )
 
@@ -486,8 +550,8 @@ def solve_eph(M, n_bar, L, t2=T2, solver=None, solver_opts=None):
         "n_cells": NC,
         "eps_tail": eps_val,
         "cell_mass": float(np.sum(q_val)),
-        "lower_mean_A": float(lower[:, 0] @ q_val),
-        "lower_mean_B": float(lower[:, 1] @ q_val),
+        "mean_A_in": float(np.sum(np.asarray(xA.value).ravel())),
+        "mean_B_in": float(np.sum(np.asarray(xB.value).ravel())),
     }
 
     return e_ph, e_obs, P_pass, prob.status, q_val, diagnostics
@@ -510,7 +574,7 @@ if __name__ == "__main__":
     )
     print(
         f"{'L(km)':>7} {'e_ph':>8} {'e_bit':>8} {'P_pass':>11} "
-        f"{'R':>11} {'eps_tail':>11} {'EA_lower':>11}  status"
+        f"{'R':>11} {'eps_tail':>11} {'EA_in':>11}  status"
     )
 
     for L in (0.0, 2.0, 5.0, 10.0):
@@ -532,7 +596,7 @@ if __name__ == "__main__":
         print(
             f"{L:7.1f} {e_ph:8.4f} {e_bit:8.4f} {P_pass:11.3e} "
             f"{R:11.3e} {diag['eps_tail']:11.3e} "
-            f"{diag['lower_mean_A']:11.3e}  {st}",
+            f"{diag['mean_A_in']:11.3e}  {st}",
             flush=True,
         )
 
