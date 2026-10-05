@@ -16,7 +16,8 @@ The physical mean-energy bound is carried through the same chain:
     E[M_X] <= n_bar/(2 tau)
         <=>  integral u_X d nu_tau <= n_bar/2
         -->  integral u_X d nu <= n_bar/2
-        -->  sum_j lower_u_{X,j} q_j <= n_bar/2.
+        -->  sum_j xX_j <= n_bar/2,
+             xX_j = integral_{C_j} u_X dnu.
 
 The first arrow is exact. Dropping the lattice support is an outer
 relaxation. The final cell representation is also an outer relaxation.  Besides the
@@ -601,8 +602,8 @@ if __name__ == "__main__":
         )
 
     print(
-        "\nRefinement note: smaller cells reduce the local kernel radii, "
-        "but independent-disk relaxations at two resolutions are not "
-        "automatically nested. For a guaranteed monotone hierarchy, retain "
-        "parent-cell constraints when adding child cells."
+        "\nRefinement note: the lifted first-order model has a certified "
+        "second-order within-cell remainder. Independent relaxations at "
+        "different resolutions are still not automatically nested; retain "
+        "parent-cell constraints if a provably monotone hierarchy is needed."
     )
