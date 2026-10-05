@@ -89,6 +89,8 @@ not specified by the generic epsilon_mon abstraction.
 """
 
 import math
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 
 import cvxpy as cp
 import numpy as np
@@ -123,6 +125,22 @@ EPS_MON = 1e-6
 # compact and small, so a uniform grid is more natural than the logarithmic
 # tail grid used in Stage 3.
 N_U = 60
+
+# Parallel scan defaults.
+#
+# U_MAX_FACTORS are per-arm upper-energy caps relative to the nominal honest
+# value n_bar/2:
+#
+#     u_max = factor * n_bar/2.
+#
+# The scan therefore includes the current default 20% headroom at factor 1.2.
+DISTANCES_KM = (0.0, 2.0, 5.0, 10.0, 20.0, 40.0)
+U_MAX_FACTORS = (1.0, 1.1, 1.2, 1.5, 2.0, 3.0)
+
+# Each solve is an independent CVXPY problem, so the outer scan can be run
+# concurrently.  Keep this modest because MOSEK/BLAS may themselves use
+# internal threads; increasing MAX_WORKERS too far can oversubscribe the CPU.
+MAX_WORKERS = min(4, os.cpu_count() or 1)
 
 # Tiny numerical allowance, independent of monitor leakage and cell remainders.
 SLACK_FLOOR = 1e-12
@@ -482,55 +500,162 @@ def solve_eph(
 
 
 # --------------------------------------------------------------------------
+# Parallel distance / upper-cap scan
+
+def _scan_one(task):
+    """
+    Solve one independent (distance, u_max) point.
+
+    ThreadPoolExecutor is used at the outer scan level.  Each worker constructs
+    its own CVXPY variables/problem, so there is no shared optimization state.
+    """
+    (
+        M_scan,
+        n_bar,
+        L,
+        u_max,
+        eps_mon,
+        t2,
+        n_u,
+        solver,
+        solver_opts,
+    ) = task
+
+    e_ph, e_bit, P_pass, status, q_val, diag = solve_eph(
+        M_scan,
+        n_bar,
+        L,
+        t2=t2,
+        uA_cap=u_max,
+        uB_cap=u_max,
+        eps_mon=eps_mon,
+        n_u=n_u,
+        solver=solver,
+        solver_opts=solver_opts,
+    )
+
+    R_acc = P_pass * max(
+        0.0,
+        1 - h2(e_ph) - F_EC * h2(e_bit),
+    )
+
+    return {
+        "L_km": float(L),
+        "u_max": float(u_max),
+        "u_factor": float(2 * u_max / n_bar),
+        "e_ph": float(e_ph),
+        "e_bit": float(e_bit),
+        "Ppass_mon": float(P_pass),
+        "R_acc": float(R_acc),
+        "status": status,
+        "beta": None if q_val is None else float(diag["beta"]),
+        "EA_good": None if q_val is None else float(diag["mean_A_good"]),
+        "n_cells": int(diag["n_cells"]),
+    }
+
+
+def run_scan(
+    M_scan,
+    n_bar,
+    distances=DISTANCES_KM,
+    u_max_factors=U_MAX_FACTORS,
+    eps_mon=EPS_MON,
+    t2=T2,
+    n_u=N_U,
+    max_workers=MAX_WORKERS,
+    solver=None,
+    solver_opts=None,
+):
+    """
+    Parallel scan over distance and per-arm upper-energy threshold.
+
+    u_max_factors are relative to n_bar/2:
+        u_max = factor * n_bar/2.
+
+    Returns a list of dictionaries sorted first by u_max, then by distance.
+    """
+    if max_workers < 1:
+        raise ValueError("max_workers must be at least 1.")
+
+    tasks = []
+    for factor in u_max_factors:
+        if factor <= 0:
+            raise ValueError("All u_max_factors must be positive.")
+        u_max = float(factor) * n_bar / 2
+        for L in distances:
+            tasks.append(
+                (
+                    M_scan,
+                    n_bar,
+                    float(L),
+                    u_max,
+                    eps_mon,
+                    t2,
+                    n_u,
+                    solver,
+                    solver_opts,
+                )
+            )
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = [pool.submit(_scan_one, task) for task in tasks]
+        for fut in as_completed(futures):
+            results.append(fut.result())
+
+    results.sort(key=lambda r: (r["u_max"], r["L_km"]))
+    return results
+
+
+def print_scan(results):
+    """Pretty-print a completed Stage-4 distance/u_max scan."""
+    print(
+        f"{'u_fac':>7} {'u_max':>10} {'L(km)':>7} {'e_ph':>8} "
+        f"{'e_bit':>8} {'Ppass|mon':>11} {'R_acc':>11} "
+        f"{'beta':>11} {'EA_good':>11}  status"
+    )
+
+    for r in results:
+        beta = "-" if r["beta"] is None else f"{r['beta']:.3e}"
+        ea = "-" if r["EA_good"] is None else f"{r['EA_good']:.3e}"
+        print(
+            f"{r['u_factor']:7.2f} {r['u_max']:10.4e} {r['L_km']:7.1f} "
+            f"{r['e_ph']:8.4f} {r['e_bit']:8.4f} "
+            f"{r['Ppass_mon']:11.3e} {r['R_acc']:11.3e} "
+            f"{beta:>11} {ea:>11}  {r['status']}",
+            flush=True,
+        )
+
+
+# --------------------------------------------------------------------------
 
 if __name__ == "__main__":
     n_bar = 0.01
-    u_cap = U_CAP_FACTOR * n_bar / 2
 
     print(
-        f"M = {M}, n_bar = {n_bar}, t^2 = {T2:g}, "
-        f"u_cap = {u_cap:g} per arm, eps_mon = {EPS_MON:g}, "
-        f"N_U = {N_U}, {N_U**2} cells"
+        f"M = {M}, n_bar = {n_bar}, t^2 = {T2:g}, eps_mon = {EPS_MON:g}, "
+        f"N_U = {N_U}, workers = {MAX_WORKERS}"
     )
     print(
         "Certified Stage-4 upper-energy monitor relaxation; no lower-energy "
         "threshold is assumed."
     )
     print(
-        f"{'L(km)':>7} {'e_ph':>8} {'e_bit':>8} {'Ppass|mon':>11} "
-        f"{'R_acc':>11} {'beta':>11} {'EA_good':>11}  status"
+        "Scanning distance and u_max in parallel, with "
+        "u_max = u_factor * n_bar/2 per arm."
     )
 
-    for L in (0.0, 2.0, 5.0, 10.0, 20.0, 40.0):
-        e_ph, e_bit, P_pass, st, q_val, diag = solve_eph(
-            M,
-            n_bar,
-            L,
-            uA_cap=u_cap,
-            uB_cap=u_cap,
-            eps_mon=EPS_MON,
-        )
-
-        # Rate per monitor-accepted round.  Multiply by P_mon for the rate per
-        # original incoming round once a physical monitor model supplies it.
-        R_acc = P_pass * max(
-            0.0,
-            1 - h2(e_ph) - F_EC * h2(e_bit),
-        )
-
-        if q_val is None:
-            print(
-                f"{L:7.1f} {'-':>8} {'-':>8} {P_pass:11.3e} "
-                f"{'-':>11} {'-':>11} {'-':>11}  {st}"
-            )
-            continue
-
-        print(
-            f"{L:7.1f} {e_ph:8.4f} {e_bit:8.4f} {P_pass:11.3e} "
-            f"{R_acc:11.3e} {diag['beta']:11.3e} "
-            f"{diag['mean_A_good']:11.3e}  {st}",
-            flush=True,
-        )
+    results = run_scan(
+        M,
+        n_bar,
+        distances=DISTANCES_KM,
+        u_max_factors=U_MAX_FACTORS,
+        eps_mon=EPS_MON,
+        t2=T2,
+        n_u=N_U,
+        max_workers=MAX_WORKERS,
+    )
+    print_scan(results)
 
     print(
         "\nR_acc is conditional on monitor acceptance.  A physical detector "
