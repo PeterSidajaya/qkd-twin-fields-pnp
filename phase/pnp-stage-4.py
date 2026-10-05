@@ -91,8 +91,10 @@ not specified by the generic epsilon_mon abstraction.
 import math
 import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
+from pathlib import Path
 
 import cvxpy as cp
+import matplotlib.pyplot as plt
 import numpy as np
 
 
@@ -607,6 +609,122 @@ def run_scan(
     return results
 
 
+def plot_scan(results, output_dir=None):
+    """
+    Save summary plots for the distance/u_max scan.
+
+    Three figures are produced:
+      1. e_ph versus distance, one curve per u_max factor;
+      2. R_acc versus distance, one curve per u_max factor;
+      3. a heat map of e_ph over (distance, u_max factor).
+
+    By default figures are written next to this script.
+    """
+    if not results:
+        raise ValueError("Cannot plot an empty scan.")
+
+    if output_dir is None:
+        output_dir = Path(__file__).resolve().parent
+    else:
+        output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    factors = sorted({r["u_factor"] for r in results})
+    distances = sorted({r["L_km"] for r in results})
+
+    # ------------------------------------------------------------------
+    # Phase error versus distance
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    for factor in factors:
+        rows = sorted(
+            (r for r in results if np.isclose(r["u_factor"], factor)),
+            key=lambda r: r["L_km"],
+        )
+        ax.plot(
+            [r["L_km"] for r in rows],
+            [r["e_ph"] for r in rows],
+            marker="o",
+            label=fr"$u_{{\max}}={factor:.2f}\,\bar n/2$",
+        )
+
+    ax.axhline(
+        0.292,
+        linestyle="--",
+        linewidth=1.0,
+        label=r"rough positive-key threshold $e_{\rm ph}\simeq0.292$",
+    )
+    ax.set_xlabel("Distance (km)")
+    ax.set_ylabel(r"$e_{\rm ph}$")
+    ax.set_title("Stage 4: certified phase-error bound")
+    ax.grid(True, alpha=0.25)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+
+    eph_path = output_dir / "stage4-eph-vs-distance.png"
+    fig.savefig(eph_path, dpi=220)
+    plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Accepted-round key rate versus distance
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    for factor in factors:
+        rows = sorted(
+            (r for r in results if np.isclose(r["u_factor"], factor)),
+            key=lambda r: r["L_km"],
+        )
+        ax.plot(
+            [r["L_km"] for r in rows],
+            [r["R_acc"] for r in rows],
+            marker="o",
+            label=fr"$u_{{\max}}={factor:.2f}\,\bar n/2$",
+        )
+
+    ax.set_xlabel("Distance (km)")
+    ax.set_ylabel(r"$R_{\rm acc}$")
+    ax.set_title("Stage 4: key rate per monitor-accepted round")
+    ax.grid(True, alpha=0.25)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+
+    rate_path = output_dir / "stage4-rate-vs-distance.png"
+    fig.savefig(rate_path, dpi=220)
+    plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Phase-error heat map
+    eph_grid = np.full((len(factors), len(distances)), np.nan)
+    for r in results:
+        i = factors.index(r["u_factor"])
+        j = distances.index(r["L_km"])
+        eph_grid[i, j] = r["e_ph"]
+
+    fig, ax = plt.subplots(figsize=(7.6, 4.8))
+    im = ax.imshow(
+        eph_grid,
+        origin="lower",
+        aspect="auto",
+        extent=[
+            min(distances),
+            max(distances),
+            min(factors),
+            max(factors),
+        ],
+        interpolation="nearest",
+    )
+    ax.set_xlabel("Distance (km)")
+    ax.set_ylabel(r"$u_{\max}/(\bar n/2)$")
+    ax.set_title("Stage 4: phase-error scan")
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label(r"$e_{\rm ph}$")
+    fig.tight_layout()
+
+    heat_path = output_dir / "stage4-eph-heatmap.png"
+    fig.savefig(heat_path, dpi=220)
+    plt.close(fig)
+
+    return eph_path, rate_path, heat_path
+
+
 def print_scan(results):
     """Pretty-print a completed Stage-4 distance/u_max scan."""
     print(
@@ -656,6 +774,11 @@ if __name__ == "__main__":
         max_workers=MAX_WORKERS,
     )
     print_scan(results)
+
+    plot_paths = plot_scan(results)
+    print("\nSaved scan plots:")
+    for path in plot_paths:
+        print(f"  {path}")
 
     print(
         "\nR_acc is conditional on monitor acceptance.  A physical detector "
