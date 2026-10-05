@@ -1518,130 +1518,211 @@ The final finite variables are cell masses, not point masses.
 
 \input{phase/stage3-cell-relaxation-figure.tex}
 
-\subsection{Certified finite-dimensional cell relaxation}
+\subsection{Certified lifted cell relaxation}
 
 Partition the represented domain as
 \[
-    D_U=\bigcup_{j=1}^{J}C_j
+    D_U=\bigcup_{j=1}^{J}C_j.
 \]
-and define
+For each cell retain not only its probability mass
 \begin{equation}
-    \boxed{
-    q_j:=\nu(C_j).
-    }
+    q_j:=\nu(C_j),
     \label{eq:stage3-cell-mass}
 \end{equation}
-The variable \(q_j\) means that this amount of probability mass lies
-\emph{somewhere} inside \(C_j\).  It does not place that mass at any chosen
-point.
+but also its two first moments
+\begin{equation}
+    x_{A,j}
+    :=
+    \int_{C_j}u_A\,d\nu,
+    \qquad
+    x_{B,j}
+    :=
+    \int_{C_j}u_B\,d\nu.
+    \label{eq:stage3-cell-first-moments}
+\end{equation}
+Thus \(q_j\) says how much mass lies somewhere in \(C_j\), while
+\(x_{A,j},x_{B,j}\) retain the mean location of that mass inside the cell.
+No point-support assumption is made.
 
-Choose a representative \(c_j\in C_j\) only for evaluating the kernel.
-For each pair \(s,t\),
-\begin{equation}
-    \int_{C_j}K_\tau^{st}(u)\,d\nu(u)
-    =
-    q_jK_\tau^{st}(c_j)+r_{st,j}.
-    \label{eq:stage3-cell-decomposition}
-\end{equation}
-Since
+Let
 \[
-    \frac{\partial K_\tau^{st}}{\partial u_X}
-    =
-    b_X^{st}K_\tau^{st},
+    \underline u_{X,j}:=\inf_{u\in C_j}u_X,
+    \qquad
+    \overline u_{X,j}:=\sup_{u\in C_j}u_X,
 \]
-and \(|K_\tau^{st}|\le1\),
+and similarly
 \[
-    \left|
-      \frac{\partial K_\tau^{st}}{\partial u_X}
-    \right|
-    \le
-    |b_X^{st}|.
+    \underline s_j:=\inf_{u\in C_j}(u_A+u_B),
+    \qquad
+    \overline s_j:=\sup_{u\in C_j}(u_A+u_B).
 \]
-Therefore, for every \(u\in C_j\),
-\begin{equation}
-    \boxed{
-    |K_\tau^{st}(u)-K_\tau^{st}(c_j)|
-    \le
-    |b_A^{st}|\,|u_A-c_{A,j}|
+Every genuine continuum measure satisfies the perspective constraints
+\begin{align}
+    \underline u_{A,j}q_j
+    &\le x_{A,j}\le
+    \overline u_{A,j}q_j,
+    \\
+    \underline u_{B,j}q_j
+    &\le x_{B,j}\le
+    \overline u_{B,j}q_j,
+    \\
+    \underline s_jq_j
+    &\le x_{A,j}+x_{B,j}\le
+    \overline s_jq_j.
+    \label{eq:stage3-cell-perspective}
+\end{align}
+For the clipped rectangular cells used numerically these inequalities encode
+the fact that the conditional barycentre of the mass in \(C_j\) lies inside
+the same convex cell.
+
+\subsubsection{First-order kernel lifting and second-order remainder}
+
+Choose a representative point
+\[
+    c_j=(c_{A,j},c_{B,j})\in C_j
+\]
+only as a linearisation point.  Recall that
+\[
+    K_\tau^{st}(u)
+    =
+    \exp[
+      b_A^{st}u_A+b_B^{st}u_B
+    ].
+\]
+For \(u\in C_j\), write
+\[
+    \Delta u_X=u_X-c_{X,j},
+    \qquad
+    z_{st,j}(u)
+    :=
+    b_A^{st}\Delta u_A
     +
-    |b_B^{st}|\,|u_B-c_{B,j}|.
-    }
-    \label{eq:stage3-cell-bound}
-\end{equation}
+    b_B^{st}\Delta u_B.
+\]
+Then
+\[
+    K_\tau^{st}(u)
+    =
+    K_\tau^{st}(c_j)e^{z_{st,j}(u)}.
+\]
+Using
+\[
+    e^z=1+z+R_2(z),
+    \qquad
+    |R_2(z)|
+    \le
+    \frac{|z|^2}{2}e^{|z|},
+\]
+the integral over one cell can be written as
+\begin{align}
+    \int_{C_j}K_\tau^{st}(u)\,d\nu(u)
+    &=
+    K_\tau^{st}(c_j)
+    \Big[
+      q_j
+      +
+      b_A^{st}(x_{A,j}-c_{A,j}q_j)
+      \nonumber\\
+    &\hspace{29mm}
+      +
+      b_B^{st}(x_{B,j}-c_{B,j}q_j)
+    \Big]
+    +
+    r_{st,j}.
+    \label{eq:stage3-lifted-cell-decomposition}
+\end{align}
+The first-order term is therefore represented \emph{exactly} by the lifted
+variables \(q_j,x_{A,j},x_{B,j}\).
+
 Define
 \begin{equation}
-    \delta_{st,j}
+    \rho_{st,j}
     :=
     \sup_{u\in C_j}
-    |K_\tau^{st}(u)-K_\tau^{st}(c_j)|.
-    \label{eq:stage3-cell-radius}
+    \left|
+      b_A^{st}(u_A-c_{A,j})
+      +
+      b_B^{st}(u_B-c_{B,j})
+    \right|.
+    \label{eq:stage3-cell-bound}
 \end{equation}
-For a rectangular cell centered at \(c_j\) with half-widths
-\(h_{A,j},h_{B,j}\), one may use the computable bound
+Since the absolute value of an affine function is convex, for a polygonal
+cell the supremum is attained at a vertex and is easy to compute exactly.
+The Taylor remainder obeys
 \begin{equation}
-    \boxed{
-    \delta_{st,j}
+    |r_{st,j}|
     \le
-    |b_A^{st}|h_{A,j}
-    +
-    |b_B^{st}|h_{B,j}.
-    }
-    \label{eq:stage3-rect-cell-radius}
+    q_j\,\eta_{st,j},
+    \qquad
+    \eta_{st,j}
+    :=
+    \frac{\rho_{st,j}^2}{2}e^{\rho_{st,j}}.
+    \label{eq:stage3-second-order-remainder}
 \end{equation}
-Then
+A second independent bound follows from
+\(|K_\tau(u)|,|K_\tau(c_j)|\le1\):
 \[
     |r_{st,j}|
     \le
-    q_j\delta_{st,j}.
+    q_j(2+\rho_{st,j}).
 \]
+The implementation uses the smaller of these two certified bounds.
 
-Including the tail gives the certified overlap constraint
+Define the lifted finite approximation
+\begin{align}
+    \widetilde\Lambda_{st}^{\rm cell}
+    :=
+    \sum_j
+    K_\tau^{st}(c_j)
+    \Big[
+      q_j
+      &+
+      b_A^{st}(x_{A,j}-c_{A,j}q_j)
+      \nonumber\\
+      &+
+      b_B^{st}(x_{B,j}-c_{B,j}q_j)
+    \Big].
+    \label{eq:stage3-lifted-overlap}
+\end{align}
+Including the unknown tail outside \(D_U\), whose overlap contribution has
+modulus at most \(\varepsilon_U\), gives the certified SOC constraint
 \begin{equation}
 \boxed{
     \left|
       \sum_zG[(z,s),(z,t)]
       -
-      \sum_jq_jK_\tau^{st}(c_j)
+      \widetilde\Lambda_{st}^{\rm cell}
     \right|
     \le
-    \sum_jq_j\delta_{st,j}
+    \sum_jq_j\eta_{st,j}
     +
     \varepsilon_U.
 }
     \label{eq:stage3-certified-soc}
 \end{equation}
-The complex absolute value is a two-dimensional second-order-cone constraint,
-and the right-hand side is affine in the finite optimization variables.
+The important improvement over the zeroth-order cell enclosure is that the
+within-cell error is now second order in the cell diameter rather than first
+order.
 
-\subsection{How the energy bound reaches the cell variables}
+\subsection{How the energy bound reaches the lifted cell variables}
 
-The same mean-energy constraint must also be enclosed in the safe direction.
-Let
+The lifted moments also remove most of the looseness in the energy
+constraint.  By definition,
 \[
-    \underline u_{A,j}
-    :=
-    \inf_{u\in C_j}u_A,
+    \sum_jx_{A,j}
+    =
+    \int_{D_U}u_A\,d\nu,
     \qquad
-    \underline u_{B,j}
-    :=
-    \inf_{u\in C_j}u_B.
+    \sum_jx_{B,j}
+    =
+    \int_{D_U}u_B\,d\nu.
 \]
-Because
-\[
-    \underline u_{X,j}q_j
-    \le
-    \int_{C_j}u_X\,d\nu,
-\]
-every continuum measure satisfies
+Hence every feasible continuum measure satisfies
 \begin{equation}
     \boxed{
-    \sum_j\underline u_{A,j}q_j
-    \le
-    \frac{\bar n}{2},
+    \sum_jx_{A,j}\le\frac{\bar n}{2},
     \qquad
-    \sum_j\underline u_{B,j}q_j
-    \le
-    \frac{\bar n}{2}.
+    \sum_jx_{B,j}\le\frac{\bar n}{2}.
     }
     \label{eq:stage3-cell-perarm-energy}
 \end{equation}
@@ -1652,8 +1733,7 @@ Together with
 the triangular tail gives
 \begin{equation}
     \boxed{
-    \sum_j
-    (\underline u_{A,j}+\underline u_{B,j})q_j
+    \sum_j(x_{A,j}+x_{B,j})
     +
     U\varepsilon_U
     \le
@@ -1662,7 +1742,7 @@ the triangular tail gives
     \label{eq:stage3-cell-total-energy}
 \end{equation}
 
-Thus the energy bound has been transported through the whole chain:
+Thus the same physical energy statement is carried through the entire chain:
 \begin{equation}
 \boxed{
 \mathbb E[M_X]\le\frac{\bar n}{2\tau}
@@ -1671,78 +1751,84 @@ Thus the energy bound has been transported through the whole chain:
 \;\Longrightarrow\;
 \int u_X\,d\nu\le\frac{\bar n}{2}
 \;\Longrightarrow\;
-\sum_j\underline u_{X,j}q_j\le\frac{\bar n}{2}.
+\sum_jx_{X,j}\le\frac{\bar n}{2}.
 }
 \label{eq:stage3-energy-chain}
 \end{equation}
-The first implication is an exact change of variables.  The middle step keeps
-the same moment bound while enlarging the allowed support.  The final step
-uses cell lower bounds and is again an outer relaxation.
+The first arrow is an exact change of variables.  The middle step enlarges
+only the support of the measure.  The final step does not approximate the
+in-domain first moment: it introduces variables that are precisely those cell
+moments.  Only the unrepresented tail is relaxed through the lower charge
+\(U\varepsilon_U\).
 
-Using cell centers in the upper-energy constraints without compensating slack
-would be unsafe: a physical measure could sit near the lower edge of the cell
-and be incorrectly excluded.
-
-\subsection{Proof of the outer-approximation direction}
+\subsection{Proof of the lifted outer-approximation direction}
 
 Take any feasible continuum measure \(\nu\).  Define
 \[
     q_j=\nu(C_j),
     \qquad
+    x_{A,j}=\int_{C_j}u_A\,d\nu,
+    \qquad
+    x_{B,j}=\int_{C_j}u_B\,d\nu,
+    \qquad
     \varepsilon_U=\nu(D_U^c).
 \]
-Then normalization and
+The perspective constraints
+Eq.~\eqref{eq:stage3-cell-perspective} follow immediately because each
+conditional cell barycentre lies in \(C_j\).  The energy constraints
 Eqs.~\eqref{eq:stage3-cell-perarm-energy}--\eqref{eq:stage3-cell-total-energy}
-follow directly from positivity and the lower bounds on each cell.  Moreover,
-\begin{align}
+follow from the original first-moment bounds.
+
+For every state pair,
+Eq.~\eqref{eq:stage3-lifted-cell-decomposition} and the certified remainder
+bound imply
+\[
     \int K_\tau^{st}\,d\nu
-    &=
-    \sum_jq_jK_\tau^{st}(c_j)
+    =
+    \widetilde\Lambda_{st}^{\rm cell}
     +
     \sum_jr_{st,j}
     +
     r_{st}^{\rm tail},
-\end{align}
-with
-\[
-    |r_{st,j}|\le q_j\delta_{st,j},
-    \qquad
-    |r_{st}^{\rm tail}|\le\varepsilon_U.
 \]
-Therefore every continuum-feasible point maps to a finite feasible point, so
+where
+\[
+    |r_{st,j}|
+    \le
+    q_j\eta_{st,j},
+    \qquad
+    |r_{st}^{\rm tail}|
+    \le
+    \varepsilon_U.
+\]
+Thus every continuum-feasible point maps to a feasible lifted finite point:
 \begin{equation}
     \boxed{
     \mathcal F_{\rm physical}
     \subseteq
     \mathcal F_{\rm continuum}
     \subseteq
-    \mathcal F_{\rm cell}.
+    \mathcal F_{\rm lifted\ cell}.
     }
     \label{eq:stage3-feasible-chain}
 \end{equation}
-Consequently
+Consequently,
 \begin{equation}
     \boxed{
     e_{\rm ph}^{\rm physical}
     \le
     e_{\rm ph}^{\rm continuum}
     \le
-    e_{\rm ph}^{\rm cell}.
+    e_{\rm ph}^{\rm lifted\ cell}.
     }
     \label{eq:stage3-objective-chain}
 \end{equation}
 
-This is the precise sense in which the finite cell calculation is a certified
-outer approximation.  The finite problem is deliberately allowed to contain
-some points that do not correspond to any actual continuum measure.
-
 \begin{remark}[Cell refinement and monotonicity]
-Shrinking the cells reduces the local radii \(\delta_{st,j}\), but the simple
-independent-disk relaxations at two different resolutions are not
-automatically nested.  Therefore a strictly monotone sequence
-\(e_{\rm ph}^{\rm coarse}\ge e_{\rm ph}^{\rm fine}\) is not a theorem for the
-bare cell construction.  If a guaranteed monotone hierarchy is desired,
-retain the parent-cell constraints when introducing the child cells.
+The second-order remainders shrink rapidly with cell diameter.  Nevertheless,
+independently constructed relaxations at two resolutions are not
+automatically nested.  A strictly monotone hierarchy can be enforced by
+retaining the parent-cell constraints when child cells are introduced.
 \end{remark}
 
 \subsection{Alternative computational route: adaptive exchange}
@@ -1806,10 +1892,11 @@ Those numbers remain useful historical diagnostics, but the fixed-support
 calculation is an inner approximation of the continuum problem and is not a
 security certificate.
 
-The code \texttt{phase/pnp-stage-3.py} now implements the certified cell
-outer relaxation of Eq.~\eqref{eq:stage3-certified-soc} using the exact
-finite-\(\tau\) kernel \(K_\tau\), explicit cell masses
-\(q_j=\nu(C_j)\), lower-bound energy charges, and a continuum-tail variable.
+The code \texttt{phase/pnp-stage-3.py} now implements the certified lifted
+cell relaxation of Eq.~\eqref{eq:stage3-certified-soc} using the exact
+finite-\(\tau\) kernel \(K_\tau\), cell masses
+\(q_j=\nu(C_j)\), cell first moments \(x_{A,j},x_{B,j}\), a certified
+second-order kernel remainder, and a continuum-tail variable.
 The remaining numerical task is to benchmark this certified outer bound
 against the older fixed-support values, study cell refinement, and control
 solver tolerances.  Until those scans are rerun, the numerical values quoted
