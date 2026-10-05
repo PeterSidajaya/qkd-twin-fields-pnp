@@ -84,13 +84,15 @@
 \node at (0.77,1.03) {$C_j$};
 \fill[black] (0.9,0.9) circle (1.2pt);
 \node[anchor=west] at (0.96,0.89) {$c_j$};
-\node[box,text width=2.55cm] (qbox) at (2.0,2.10)
-{$q_j:=\nu(C_j)$\\mass may lie anywhere in $C_j$};
+\node[box,text width=2.7cm] (qbox) at (2.0,2.15)
+{$q_j:=\nu(C_j)$\\
+ $x_{X,j}:=\int_{C_j}u_X\,d\nu$\\
+ mass may lie anywhere in $C_j$};
 \draw[->,green!50!black,thick]
 (qbox.south west) .. controls (1.55,1.55) .. (1.13,1.14);
 \node[box,text width=3.25cm] at (1.65,-0.78)
 {$\displaystyle
-  \sum_j\underline u_{X,j}q_j\le\frac{\bar n}{2}$\\[-1mm]
+  \sum_j x_{X,j}\le\frac{\bar n}{2}$\\[-1mm]
  $\displaystyle \sum_jq_j+\varepsilon_U=1$};
 \end{scope}
 
@@ -102,25 +104,33 @@
   inner sep=5pt,
   text width=13.0cm,
   align=center
-] at (6.65,-2.60)
-{\footnotesize
+] at (6.65,-2.72)
+{\scriptsize
+$\displaystyle
+\widetilde\Lambda_{st}^{\rm cell}
+=
+\sum_j K_\tau^{st}(c_j)
+\!\left[
+q_j+b_A^{st}(x_{A,j}-c_{A,j}q_j)
++b_B^{st}(x_{B,j}-c_{B,j}q_j)
+\right],$
+\\[1mm]
 $\displaystyle
 \left|
 \sum_zG[(z,s),(z,t)]
--
-\sum_j q_jK_\tau^{st}(c_j)
+-\widetilde\Lambda_{st}^{\rm cell}
 \right|
 \le
-\sum_jq_j\delta_{st,j}+\varepsilon_U,$
+\sum_jq_j\eta_{st,j}+\varepsilon_U,
 \qquad
-$\displaystyle
-\delta_{st,j}\ge
-\sup_{u\in C_j}
-|K_\tau^{st}(u)-K_\tau^{st}(c_j)|.$
+\eta_{st,j}\le
+\min\!\left\{
+\frac{\rho_{st,j}^2}{2}e^{\rho_{st,j}},\,2+\rho_{st,j}
+\right\}.$
 };
 
 \node[font=\footnotesize,align=center,text=black!75]
-at (6.65,-3.35)
+at (6.65,-3.58)
 {$\mathcal F_{\rm physical}
 \subseteq
 \mathcal F_{\rm continuum}
@@ -128,15 +138,15 @@ at (6.65,-3.35)
 \mathcal F_{\rm cell}$};
 
 \end{tikzpicture}
-\caption{Stage-3 representation chain.  The original source is an infinite
-distribution on the Fock lattice.  The exact rescaling
-\(u_X=\tau m_X\) pushes it forward to the lattice measure \(\nu_\tau\) and
-carries the mean-energy constraint from
+\caption{Stage-3 representation chain.  The exact rescaling
+\(u_X=\tau m_X\) pushes the Fock distribution forward to the lattice measure
+\(\nu_\tau\) and carries
 \(\mathbb E[M_X]\le\bar n/(2\tau)\) to
 \(\int u_X\,d\nu_\tau\le\bar n/2\).  Dropping the lattice support gives the
-continuum outer relaxation \(\nu\).  The final finite variables are cell
-masses \(q_j=\nu(C_j)\), not point masses at the representatives \(c_j\);
-the quantities \(\delta_{st,j}\) account for all possible kernel variation
-inside each cell.}
+continuum outer relaxation \(\nu\).  The lifted finite variables retain both
+the cell masses \(q_j=\nu(C_j)\) and the first moments
+\(x_{X,j}=\int_{C_j}u_X\,d\nu\).  The kernel is linearized about \(c_j\);
+the remaining error is bounded by a certified second-order remainder
+\(\eta_{st,j}\).}
 \label{fig:stage3-cell-relaxation}
 \end{figure}
