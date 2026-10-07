@@ -14,7 +14,7 @@
 
 \title{Working Notes: Plug-and-Play Twin-Field / Phase-Matching QKD}
 \author{}
-\date{Updated 1 October 2026}
+\date{Updated 7 October 2026}
 
 \begin{document}
 
@@ -26,27 +26,37 @@ The project has converged to a fairly clear security story.
 
 The original guessing-probability / min-entropy route appears too loose for the
 protocol and has been set aside. The current route is a phase-error SDP based
-on the Gram-matrix method of arXiv:1901.01942. With only a constraint on the
-\emph{mean} incoming energy, Eve retains a strong degree of freedom: she can
-send mostly vacuum together with rare bright pulses. Channel loss makes this
-attack progressively more effective because the observed pass probability
-decreases with distance, allowing Eve to concentrate the same average energy
-into fewer and brighter accepted rounds.
+on the Gram-matrix method of arXiv:1901.01942.  Alice and Bob are allowed to
+receive an arbitrary optical state supplied by the untrusted central node and
+entangled with Eve; the trusted structure is local phase modulation together
+with whatever attenuation and monitoring assumptions are stated explicitly.
 
-Strong attenuation alone does not remove this freedom. In the strong-
-attenuation limit it is more natural to describe Eve's source by a distribution
-of delivered energies \(u\), giving a mixed-Poisson description. This
-reformulation makes the concentration attack transparent.
+Stages~1--3 establish a negative result for mean-only source information.
+A bound on average photon number, even combined with very strong trusted
+attenuation, leaves a concentration degree of freedom: Eve may use mostly
+vacuum or weak pulses together with rare bright pulses.  As the central pass
+probability decreases with distance, the energy of the rare component
+compatible with the same first-moment bound can grow roughly as
+\(1/P_{\rm pass}\).  Strong attenuation changes the overlap kernel and makes
+the problem numerically tractable through the rescaled variable
+\(u=\tau m\), but it does not remove this concentration mechanism.
 
-The most promising fix so far is \emph{per-pulse energy monitoring}: accept
-only pulses whose incoming energy lies inside a prescribed window (or use
-feed-forward attenuation to normalize accepted pulses). In the current
-numerics this increases the secure range from roughly \(2\) km to somewhere
-between \(20\) km and \(40\) km.
+Stage~4 isolates the source information that does remove that freedom.  It is
+an \emph{abstract, hardware-independent} conditional upper-tail statement:
+among monitor-accepted rounds, all but an \(\epsilon_{\rm mon}\) fraction have
+effective delivered energies below fixed caps \(u_{A,+},u_{B,+}\).  The
+current Stage-4 SDP is rigorous conditional on that statement and gives
+positive conditional key rates through the largest distance presently scanned
+(\(40\) km for the illustrative parameters).  It does \emph{not} yet derive
+the monitor statement from a physical photon-number analyzer.
 
-The immediate task is no longer to search for a new attack mechanism. It is to
-turn the per-pulse-monitoring picture into a rigorous security statement and
-then produce publication-quality numerics.
+The next step is therefore a physical monitor model rather than a new
+phase-error formalism.  Stage~5A will treat a trusted beam splitter and
+photon-number analyzer jointly, allowing the same beam splitter both to send a
+large fraction of the incoming light to the monitor and to leave a weak signal
+for encoding.  Stage~5B will add optional trusted attenuation after that
+joint monitor.  The extra attenuator is an implementation/generalisation
+choice, not something required to create the common phase orbit.
 
 \section{Protocol and security model}
 
@@ -1986,19 +1996,49 @@ the optimized phase-error SDP moves toward \(1/2\) with distance. The logical
 step from vanishing pairwise overlap to \(e_{\rm ph}\to1/2\), however, is not
 a standalone theorem; it is an interpretation of the SDP optimum.
 
-\section{Stage 4: per-pulse upper-energy monitoring}
+\section{Stage 4: abstract conditional upper-tail monitoring}
 \label{sec:stage4-rigorous}
 
-Stage~4 keeps the Stage-3 Gram-matrix framework and exact finite-\(\tau\)
-kernel, but strengthens the source information on a round-by-round basis.
-The crucial lesson of Stages~1--3 is that a mean-energy bound permits rare
-bright pulses whose allowed energy grows roughly as \(1/P_{\rm pass}\).
-Therefore the essential extra monitor information is an \emph{upper} energy
-bound on almost every accepted round.  A lower energy bound is not required
-for this purpose and is deliberately not assumed.
+\subsection{Final scope of Stage 4}
 
-Let \(A_{\rm mon}\) denote acceptance by a trusted local energy monitor.  For
-two arms define the good region
+Stage~4 is the final \emph{abstract monitor} stage.  It deliberately does not
+model a physical APN or PNA detector, beam splitter, detector noise, or
+measurement back-action.  Instead it asks a narrower question:
+
+\begin{quote}
+If a trusted local monitor can certify that the monitor-accepted ensemble has
+only a small high-energy tail, is that information sufficient to recover a
+useful phase-error bound against an otherwise arbitrary untrusted source?
+\end{quote}
+
+The answer of the present numerical and analytic study is yes.
+
+This should be contrasted with Stage~3.  Stage~3 carries only first-moment
+information,
+\begin{equation}
+    \mathbb E[U_X]\le\frac{\bar n}{2},
+    \label{eq:stage4-stage3-mean}
+\end{equation}
+which is APN-like information and permits arbitrarily remote tails.  Stage~4
+replaces that information by a conditional upper-tail statement.  No lower
+energy threshold is required: vacuum and weak accepted pulses are harmless
+from the concentration-attack point of view, whereas rare arbitrarily bright
+accepted pulses are the dangerous degree of freedom.
+
+The variable used in the current Stage-4 implementation is still the Stage-3
+effective delivered-energy variable
+\begin{equation}
+    U_X=\tau M_X,
+    \label{eq:stage4-u-definition}
+\end{equation}
+where \(M_X\) is the photon number before the trusted pure-loss map of
+transmissivity \(\tau\).  Thus \(U_X\) is a rescaled source variable (and the
+conditional mean output photon number for a fixed input Fock number), not the
+actual realised output photon number of a particular round.
+
+\subsection{Abstract monitor interface}
+
+Let \(A_{\rm mon}\) denote acceptance by the trusted local monitor.  Define
 \begin{equation}
     W_+
     :=
@@ -2007,7 +2047,7 @@ two arms define the good region
     [0,u_{B,+}].
     \label{eq:stage4-good-region}
 \end{equation}
-The hardware-independent Stage-4 monitor statement is
+The Stage-4 security interface is
 \begin{equation}
     \boxed{
     \Pr\!\left[
@@ -2022,108 +2062,76 @@ The hardware-independent Stage-4 monitor statement is
     }
     \label{eq:stage4-monitor-interface}
 \end{equation}
-Here \emph{mon} stands for monitor.  The quantity
-\(\epsilon_{\rm mon}\) is not fixed by the abstract security proof; it must
-eventually be derived from a concrete detector model, calibration procedure,
-finite resolution, saturation analysis, and any other relevant monitor
-imperfections.
-
-The benefit of Eq.~\eqref{eq:stage4-monitor-interface} is direct.  In the
-good accepted component,
-\[
-    U_X\le u_{X,+}
-\]
-independently of distance and independently of \(P_{\rm pass}\).  Hence the
-Stage-3 concentration scale
-\[
-    u_0
-    \sim
-    \frac{\bar n/2}{P_{\rm pass}}
-\]
-can no longer grow without bound.  The exceptional
-\(\epsilon_{\rm mon}\) fraction may remain completely arbitrary; its effect
-is carried explicitly as overlap slack.
-
-\subsection{Conditioning on monitor acceptance}
-
-The trusted monitor acts before the secret phase and bit choices.  Let
-\(\mathcal M_{\rm acc}\) denote the accepted branch of its quantum instrument.
-Conditioned on acceptance,
+The parameter \(\epsilon_{\rm mon}\) is therefore a leakage probability for
+the \emph{accepted} ensemble.  In the current code
 \begin{equation}
-    \rho_{\rm acc}
+    \epsilon_{\rm mon}=10^{-6}
+    \label{eq:stage4-current-eps}
+\end{equation}
+is only a placeholder used for numerical exploration; it is not yet a
+detector-derived experimental claim.
+
+Equation~\eqref{eq:stage4-monitor-interface} is stronger in the relevant
+direction than a mean-energy bound.  In the good accepted component,
+\(U_X\le u_{X,+}\) independently of channel distance and independently of the
+central pass probability.  Hence the Stage-3 concentration scale
+\[
+    u_0\sim\frac{\bar n/2}{P_{\rm pass}}
+\]
+cannot grow without bound.
+
+\subsection{Conditioning and the common phase orbit}
+
+The monitor is assumed to act before the secret phase and bit choices.  Let
+\(\mathcal M_{\rm acc}\) denote its accepted branch.  For an arbitrary
+Eve-supplied state \(\rho\),
+\begin{equation}
+    \sigma_{\rm acc}
     =
     \frac{\mathcal M_{\rm acc}(\rho)}
          {P_{\rm mon}},
     \qquad
     P_{\rm mon}
-    :=
+    =
     \operatorname{Tr}\mathcal M_{\rm acc}(\rho).
     \label{eq:stage4-conditioned-state}
 \end{equation}
-The Gram-matrix security problem may then be applied to this conditional
-ensemble, provided acceptance is decided independently of the later secret
-choices.
-
-For an ideal one-sided photon-number threshold, the accepted projector may be
-written schematically as
+The accepted state may be mixed, correlated between Alice and Bob, and
+entangled with Eve.  None of this obstructs the phase-orbit construction.
+After all basis-independent trusted operations have been completed, the
+secret encoding itself generates
 \begin{equation}
-    \Pi_{\le}
+    \rho_s
     =
-    \sum_{\substack{
-      m_A,m_B:\\
-      \tau m_A\le u_{A,+},\\
-      \tau m_B\le u_{B,+}
-    }}
-    |m_A,m_B\rangle\!\langle m_A,m_B|.
-    \label{eq:stage4-ideal-upper-projector}
+    U_s\sigma_0U_s^\dagger,
+    \label{eq:stage4-common-orbit}
 \end{equation}
-In that ideal case,
+where \(\sigma_0\) is the accepted reference state at the point of encoding.
+Thus the common unitary orbit does \emph{not} have to be restored by
+attenuation.  It is automatic as long as monitoring/attenuation are performed
+before the phase label \(s\) is applied.
+
+Choosing one purification \(|\chi_0\rangle\) of \(\sigma_0\) and defining
 \[
-    \operatorname{supp}\nu_{\rm acc}
-    \subseteq
-    W_+.
-\]
-A real monitor is represented instead by the nonzero leakage parameter
-\(\epsilon_{\rm mon}\) in Eq.~\eqref{eq:stage4-monitor-interface}.
-
-\subsection{Good--bad decomposition of the accepted measure}
-
-Let \(\nu_{\rm acc}\) be the rescaled-energy measure conditioned on
-\(A_{\rm mon}\).  Write
-\begin{equation}
-    \boxed{
-    \nu_{\rm acc}
+    |\chi_s\rangle
     =
-    \nu_{\rm good}
-    +
-    \nu_{\rm bad},
-    }
-    \label{eq:stage4-good-bad}
-\end{equation}
-where
-\[
-    \operatorname{supp}\nu_{\rm good}
-    \subseteq
-    W_+,
+    (U_s\otimes I_R)|\chi_0\rangle
 \]
-and define
+gives
 \begin{equation}
-    \beta
-    :=
-    \int d\nu_{\rm bad}.
-    \label{eq:stage4-beta}
+    \Lambda_{st}
+    =
+    \langle\chi_s|\chi_t\rangle
+    =
+    \operatorname{Tr}
+    [\sigma_0U_s^\dagger U_t],
+    \label{eq:stage4-purified-overlap}
 \end{equation}
-The monitor guarantee implies
-\begin{equation}
-    \boxed{
-    0\le\beta\le\epsilon_{\rm mon},
-    \qquad
-    \int d\nu_{\rm good}+\beta=1.
-    }
-    \label{eq:stage4-beta-bound}
-\end{equation}
+which is the overlap required by the Gram SDP.
 
-The exact finite-\(\tau\) kernel is unchanged from Stage~3:
+In the present Stage-4 abstraction the relation between the unknown accepted
+source and these overlaps is represented through the same exact finite-\(\tau\)
+kernel as Stage~3:
 \begin{equation}
     K_\tau^{st}(u_A,u_B)
     =
@@ -2140,24 +2148,53 @@ The exact finite-\(\tau\) kernel is unchanged from Stage~3:
     \right).
     \label{eq:stage4-kernel}
 \end{equation}
-Thus
-\begin{align}
+
+\subsection{Good--bad decomposition}
+
+Let \(\nu_{\rm acc}\) be the accepted effective-energy measure.  Write
+\begin{equation}
+    \boxed{
+    \nu_{\rm acc}
+    =
+    \nu_{\rm good}
+    +
+    \nu_{\rm bad},
+    }
+    \label{eq:stage4-good-bad}
+\end{equation}
+with
+\[
+    \operatorname{supp}\nu_{\rm good}
+    \subseteq W_+,
+\]
+and define
+\[
+    \beta
+    :=
+    \int d\nu_{\rm bad}.
+\]
+The monitor statement implies
+\begin{equation}
+    \boxed{
+    0\le\beta\le\epsilon_{\rm mon},
+    \qquad
+    \int d\nu_{\rm good}+\beta=1.
+    }
+    \label{eq:stage4-beta-bound}
+\end{equation}
+
+For every signal pair,
+\begin{equation}
     \Lambda_{st}^{\rm acc}
-    &=
+    =
     \int_{W_+}
-      K_\tau^{st}(u)
-      \,d\nu_{\rm good}(u)
+      K_\tau^{st}(u)\,d\nu_{\rm good}(u)
     +
     r_{st}^{\rm mon},
     \label{eq:stage4-overlap-decomposition}
-\end{align}
-where
-\[
-    r_{st}^{\rm mon}
-    :=
-    \int K_\tau^{st}(u)\,d\nu_{\rm bad}(u).
-\]
-Since \(|K_\tau^{st}|\le1\),
+\end{equation}
+where the bad component is left completely arbitrary.  Since
+\(|K_\tau^{st}(u)|\le1\),
 \begin{equation}
     \boxed{
     |r_{st}^{\rm mon}|
@@ -2168,84 +2205,40 @@ Since \(|K_\tau^{st}|\le1\),
     }
     \label{eq:stage4-monitor-overlap-slack}
 \end{equation}
-No model of the bad component is otherwise required.
 
-\subsection{Measure-valued Stage-4 optimization}
+This is the essential Stage-4 reduction: the unbounded continuum tail of
+Stage~3 is replaced by a compact good region plus one explicit bad-mass
+parameter.
 
-At the continuum level, Stage~4 is
-\begin{equation}
-\begin{aligned}
-    \text{maximize}_{G,\nu_{\rm good},\nu_{\rm bad}}
-    \quad&
-    e_{\rm ph}(G)
-    \\
-    \text{subject to}\quad&
-    G\succeq0,
-    \\
-    &
-    \nu_{\rm good}\ge0,
-    \qquad
-    \operatorname{supp}\nu_{\rm good}\subseteq W_+,
-    \\
-    &
-    \nu_{\rm bad}\ge0,
-    \\
-    &
-    \int d\nu_{\rm good}
-    +
-    \int d\nu_{\rm bad}
-    =
-    1,
-    \\
-    &
-    \int d\nu_{\rm bad}
-    \le
-    \epsilon_{\rm mon},
-    \\
-    &
-    \sum_zG[(z,s),(z,t)]
-    =
-    \int K_\tau^{st}\,d\nu_{\rm good}
-    +
-    \int K_\tau^{st}\,d\nu_{\rm bad}
-    \quad
-    \forall s,t,
-    \\
-    &
-    G[(z,s),(z,s)]
-    =
-    P(z|s,A_{\rm mon})
-    \quad
-    \forall z,s.
-\end{aligned}
-    \label{eq:stage4-measure-program}
-\end{equation}
-The phase-error objective is still Eq.~\eqref{eq:a7-general}.
+\subsection{No generic conditional mean constraint}
 
-An important distinction from Stage~3 is that the unconditional mean-energy
-bound
+An unconditional APN statement such as
 \[
     \mathbb E[U_X]\le\frac{\bar n}{2}
 \]
-does not automatically remain valid with the same right-hand side after
-conditioning on \(A_{\rm mon}\).  Therefore the generic Stage-4 optimization
-does \emph{not} impose a mean bound on \(\nu_{\rm acc}\) unless the experiment
-separately certifies such a conditional statement.  The upper-support
-guarantee Eq.~\eqref{eq:stage4-monitor-interface} is the new source
-information.
+does not imply
+\[
+    \mathbb E[U_X\mid A_{\rm mon}]
+    \le\frac{\bar n}{2}.
+\]
+Conditioning can change the mean.  Therefore the generic Stage-4 SDP does
+\emph{not} impose the Stage-3 mean constraint on \(\nu_{\rm acc}\).  If an
+experiment separately certifies a conditional mean bound, it can be added,
+but it is not part of the present security claim.
 
-For numerical studies one may choose, for example,
+For numerical scans it is convenient to parameterise
 \begin{equation}
     u_{A,+}=u_{B,+}
     =
-    (1+w)\frac{\bar n}{2},
+    c\,\frac{\bar n_{\rm hon}}{2},
     \label{eq:stage4-cap-parameterization}
 \end{equation}
-with \(w\ge0\), but this is only a convenient calibration
-parameterization.  The proof itself requires only certified values of
-\(u_{A,+}\), \(u_{B,+}\), and \(\epsilon_{\rm mon}\).
+where \(\bar n_{\rm hon}\) is a nominal honest outgoing brightness used only
+as a reference scale.  Equation~\eqref{eq:stage4-cap-parameterization} is
+\emph{not} a security identity and \(\bar n_{\rm hon}\) is not an optimized
+moment of Eve's Stage-4 distribution.
 
-\subsection{Certified lifted finite-dimensional Stage-4 program}
+\subsection{Certified finite-dimensional relaxation}
 
 Partition the compact good region into cells
 \[
@@ -2253,7 +2246,7 @@ Partition the compact good region into cells
     =
     \bigcup_{j=1}^{J}C_j.
 \]
-For the good component define
+For each cell retain the good mass and its first moments,
 \begin{equation}
     q_j
     :=
@@ -2268,33 +2261,17 @@ For the good component define
     \int_{C_j}u_B\,d\nu_{\rm good}.
     \label{eq:stage4-cell-vars}
 \end{equation}
-For rectangular cells,
+They obey the usual perspective constraints
 \begin{align}
     \underline u_{A,j}q_j
-    &\le
-    x_{A,j}
-    \le
-    \overline u_{A,j}q_j,
+    &\le x_{A,j}\le\overline u_{A,j}q_j,
     \\
     \underline u_{B,j}q_j
-    &\le
-    x_{B,j}
-    \le
-    \overline u_{B,j}q_j.
+    &\le x_{B,j}\le\overline u_{B,j}q_j.
     \label{eq:stage4-cell-perspective}
 \end{align}
-The normalization and monitor leakage constraints are
-\begin{equation}
-    \boxed{
-    \sum_jq_j+\beta=1,
-    \qquad
-    0\le\beta\le\epsilon_{\rm mon}.
-    }
-    \label{eq:stage4-finite-normalization}
-\end{equation}
-
-Using the Stage-3 lifted kernel expansion about a representative
-\(c_j=(c_{A,j},c_{B,j})\), define
+Using the Stage-3 first-order lifted kernel and certified second-order
+remainder, define
 \begin{align}
     \widetilde\Lambda_{st}^{\rm good}
     :=
@@ -2319,10 +2296,9 @@ Let
       b_A^{st}(u_A-c_{A,j})
       +
       b_B^{st}(u_B-c_{B,j})
-    \right|,
-    \label{eq:stage4-rho}
+    \right|
 \end{equation}
-and use the certified second-order remainder coefficient
+and
 \begin{equation}
     \eta_{st,j}
     :=
@@ -2330,10 +2306,8 @@ and use the certified second-order remainder coefficient
       \frac{\rho_{st,j}^2}{2}e^{\rho_{st,j}},
       2+\rho_{st,j}
     \right\}.
-    \label{eq:stage4-eta}
 \end{equation}
-Then every continuum-feasible Stage-4 point maps to a finite feasible point
-satisfying
+Then every continuum-feasible point satisfies
 \begin{equation}
     \boxed{
     \left|
@@ -2344,76 +2318,61 @@ satisfying
     \le
     \sum_jq_j\eta_{st,j}
     +
-    \beta
-    \quad
-    \forall s<t.
+    \beta.
     }
     \label{eq:stage4-certified-soc}
 \end{equation}
-This is the direct Stage-4 analogue of the lifted Stage-3 SOC.  The
-within-cell contribution is second order in the cell diameter, while the
-entire monitor-failure component is absorbed into the single mass parameter
-\(\beta\).
-
-The resulting finite optimization is
-\begin{equation}
-\boxed{
-\begin{aligned}
-    \text{maximize}_{G,q,x_A,x_B,\beta}
-    \quad&
-    e_{\rm ph}(G)
-    \\
-    \text{subject to}\quad&
+Together with
+\[
     G\succeq0,
-    \\
-    &
-    q_j,x_{A,j},x_{B,j},\beta\ge0,
-    \\
-    &
+    \qquad
     \sum_jq_j+\beta=1,
     \qquad
-    \beta\le\epsilon_{\rm mon},
-    \\
-    &
-    \underline u_{A,j}q_j
-    \le
-    x_{A,j}
-    \le
-    \overline u_{A,j}q_j,
-    \\
-    &
-    \underline u_{B,j}q_j
-    \le
-    x_{B,j}
-    \le
-    \overline u_{B,j}q_j,
-    \\
-    &
-    \left|
-      \sum_zG[(z,s),(z,t)]
-      -
-      \widetilde\Lambda_{st}^{\rm good}
-    \right|
-    \le
-    \sum_jq_j\eta_{st,j}+\beta,
-    \\
-    &
-    G[(z,s),(z,s)]
-    =
-    P(z|s,A_{\rm mon}).
-\end{aligned}
-}
-    \label{eq:stage4-finite-program}
+    0\le\beta\le\epsilon_{\rm mon},
+\]
+the perspective constraints, observed diagonal probabilities, and the A7
+phase-error objective, this is the certified finite Stage-4 SDP implemented in
+\texttt{phase/pnp-stage-4.py}.
+
+The feasible-set direction is
+\begin{equation}
+    \boxed{
+    \mathcal F_{\rm physical\ satisfying\ monitor\ interface}
+    \subseteq
+    \mathcal F_{\rm Stage\,4\ continuum}
+    \subseteq
+    \mathcal F_{\rm Stage\,4\ lifted}.
+    }
+    \label{eq:stage4-feasible-chain}
 \end{equation}
 
-\subsection{Rate normalization}
+\subsection{Observed statistics, honest simulation, and rate normalization}
 
-Let
-\[
+For a real security calculation,
+\begin{equation}
     P_{\rm pass|mon}
     :=
-    \Pr(\text{central pass}\mid A_{\rm mon}).
-\]
+    \Pr(\text{central pass}\mid A_{\rm mon})
+    \label{eq:stage4-ppass-observed}
+\end{equation}
+is an observed protocol statistic and should be supplied to the SDP, together
+with the corresponding accepted-ensemble bit-error statistics.  It should
+\emph{not} be generated from the worst-case energy distribution found by the
+SDP.
+
+The frequently used expression
+\begin{equation}
+    P_{\rm pass|mon}^{\rm hon}
+    \simeq
+    1-e^{-\eta\bar n_{\rm hon}}+p_{\rm dc}
+    \label{eq:stage4-honest-pass}
+\end{equation}
+belongs only to a synthetic honest-performance model.  Here
+\(\bar n_{\rm hon}\) denotes the honest outgoing brightness.  In particular,
+the fact that a worst-case Stage-4 optimizer may push
+\(\sum_jx_{A,j}\) or \(\sum_jx_{B,j}\) close to the cap does not mean that the
+honest source has that brightness.
+
 The key rate per monitor-accepted round is
 \begin{equation}
     R_{\rm acc}
@@ -2430,107 +2389,183 @@ The rate per original incoming round is
     \boxed{
     R_{\rm original}
     =
-    P_{\rm mon}\,R_{\rm acc}.
+    P_{\rm mon}R_{\rm acc}.
     }
     \label{eq:stage4-rate-original}
 \end{equation}
-Equivalently, if the experimentally reported pass probability is already the
-joint probability
+Equivalently, if the experimentally reported usable-event probability is
+already
 \[
     \Pr(A_{\rm mon}\wedge\text{central pass}),
 \]
 then \(P_{\rm mon}\) must not be multiplied a second time.
 
-The current numerical script \texttt{phase/pnp-stage-4.py} reports
-\(R_{\rm acc}\).  A concrete physical monitor model is required to supply
-\(P_{\rm mon}\) and to justify the chosen value of
-\(\epsilon_{\rm mon}\).
+\subsection{Current numerical status and interpretation}
 
-\subsection{Implementation status}
-
-The script \texttt{phase/pnp-stage-4.py} implements
-Eq.~\eqref{eq:stage4-finite-program} with the exact finite-\(\tau\) kernel,
-uniform cells over the compact upper-monitor region, lifted cell first
-moments, and the certified second-order remainder.  Its default threshold is
-parameterized as
+The current default exploratory parameters are
 \[
-    u_{A,+}=u_{B,+}
+    M=4,
+    \qquad
+    \tau=10^{-8},
+    \qquad
+    \bar n_{\rm hon}=10^{-2},
+    \qquad
+    u_{A,+}=u_{B,+}=1.2\,\frac{\bar n_{\rm hon}}{2},
+    \qquad
+    \epsilon_{\rm mon}=10^{-6}.
+\]
+With \(N_U=60\) cells per axis, the representative scan is
+\begin{center}
+\begin{tabular}{ccccc}
+\toprule
+\(L\) (km) & \(e_{\rm ph}\) & \(P_{\rm pass|mon}\) & \(R_{\rm acc}\) & \(\beta\)\\
+\midrule
+0  & 0.0393 & \(8.464\times10^{-3}\) & \(5.347\times10^{-3}\) & \(10^{-6}\)\\
+2  & 0.0420 & \(7.722\times10^{-3}\) & \(4.782\times10^{-3}\) & \(10^{-6}\)\\
+5  & 0.0462 & \(6.729\times10^{-3}\) & \(4.044\times10^{-3}\) & \(10^{-6}\)\\
+10 & 0.0534 & \(5.349\times10^{-3}\) & \(3.049\times10^{-3}\) & \(10^{-6}\)\\
+20 & 0.0706 & \(3.378\times10^{-3}\) & \(1.698\times10^{-3}\) & \(10^{-6}\)\\
+40 & 0.1254 & \(1.346\times10^{-3}\) & \(4.389\times10^{-4}\) & \(10^{-6}\)\\
+\bottomrule
+\end{tabular}
+\end{center}
+These are conditional rates per monitor-accepted round.  They are not yet
+end-to-end physical rates because \(P_{\rm mon}\) has not been supplied by a
+physical monitor model.
+
+Two optimizer features are informative.  First, \(\beta\) saturates
+\(\epsilon_{\rm mon}\), showing that monitor leakage is directly
+security-relevant.  Second, the good-component first moments tend to saturate
+the allowed upper cap; without a separately certified conditional mean bound,
+the worst-case SDP correctly lets Eve place accepted good mass as high as the
+support constraint permits.
+
+The present \(u_+\) scan should therefore be read as a
+\emph{security-versus-cap} scan.  It does not yet optimize a physical detector
+threshold, because changing \(u_+\) in the current code does not simultaneously
+recompute \(P_{\rm mon}\), the honest accepted brightness, or
+\(P_{\rm pass|mon}\) from a detector/source model.
+
+\subsection{Final rigour statement for Stage 4}
+
+Stage~4 is rigorous conditional on
+Eq.~\eqref{eq:stage4-monitor-interface}.  It establishes that a sufficiently
+tight accepted-round upper-tail constraint removes the specific rare-bright
+concentration freedom that defeats the mean-only analysis.
+
+Stage~4 does \emph{not} establish that a particular beam splitter,
+photodiode, PNA, or comparator circuit satisfies that interface.  It also does
+not require a QND measurement, and it should not be read as a physical
+implementation model.  Deriving the interface from a concrete destructive
+monitor is the purpose of Stage~5.
+
+\section{Stage 5: physical PNA realisation}
+\label{sec:stage5-plan}
+
+Stage~5 will replace the abstract Stage-4 monitor interface by an explicit
+trusted photon-number-analyzer model.  Existing plug-and-play source-monitor
+work, in particular the APN/PNA/PND framework of Peng, Xu, and Guo
+(arXiv:0908.1641), shows that the relevant monitoring hardware can be built
+from ordinary destructive photodetection on a beam-splitter arm; no QND
+measurement is required.  Our security use of the monitor will differ in that
+the PNA outcome is to be incorporated directly into the accepted-round
+untrusted-source Gram analysis.
+
+\subsection{Stage 5A: joint PNA--beam-splitter model}
+
+Stage~5A will treat one trusted beam splitter and the PNA as a single quantum
+instrument.  A large fraction of Eve's bright incoming pulse may be sent to
+the destructive monitor, while the complementary output is the signal mode
+that later receives the secret phase encoding.  The same beam splitter can
+therefore provide both monitoring and signal attenuation.
+
+The main task is to derive, from the beam-splitter transformation and the
+PNA acceptance POVM, a certified statement about the \emph{conditional
+surviving signal state}.  Because the phase encoding occurs afterwards, the
+accepted signal states still satisfy
+\[
+    \rho_s^{\rm acc}
     =
-    1.2\,\frac{\bar n}{2},
+    U_s\rho_0^{\rm acc}U_s^\dagger.
 \]
-and its default \(\epsilon_{\rm mon}\) is a placeholder numerical parameter,
-not a detector-derived claim.
+Thus there is no common-orbit obstruction.  What changes relative to Stage~4
+is the source-to-overlap map: monitor outcome and surviving signal photon
+number are correlated and must be treated jointly rather than by an
+independent binomial-thinning kernel.
 
-At this stage the Stage-4 mathematical abstraction is therefore explicit:
-the remaining physical problem is to derive
-\[
-    (u_{A,+},u_{B,+},\epsilon_{\rm mon},P_{\rm mon})
-\]
-from an actual trusted monitor design.
+\subsection{Stage 5B: PNA--beam splitter plus additional trusted attenuation}
 
-\begin{remark}[Rigour status of Stages 1--4]
-The exact overlap identities, Stage~1 tail relaxation, attenuation kernel,
-covariance/common-purification construction, mixed-Poisson interpretation,
-lifted Stage-3 cell outer relaxation, and the abstract Stage-4 upper-monitor
-reduction above have explicit derivations, including the general
-untrusted-source derivation of the phase-error objective in
-Section~\ref{sec:a7-general}.  The Stage-4 optimization is rigorous
-\emph{conditional on} the monitor interface
-Eq.~\eqref{eq:stage4-monitor-interface}.  What is not yet derived is a
-hardware-specific proof of the parameters
-\(u_{A,+},u_{B,+},\epsilon_{\rm mon},P_{\rm mon}\).  That conversion from a
-real finite-resolution detector to the abstract monitor statement is the
-remaining physical security problem.
-\end{remark}
+Stage~5B will append an optional trusted pure-loss channel of transmissivity
+\(\lambda\) to the Stage-5A surviving signal before phase encoding.  This is
+the more general architecture and may be experimentally convenient because
+the monitor splitting ratio and final QKD brightness can then be tuned
+independently.
 
+The additional attenuator is \emph{not} required to create or restore the
+common phase orbit.  Its role is only to provide extra controllable signal
+loss and, analytically, an additional known thinning map.  Setting
+\(\lambda=1\) recovers Stage~5A exactly.
 
 \section{Open points}
 
-The main unresolved items are:
+The main unresolved items are now:
 
 \begin{enumerate}
-    \item \textbf{Physical monitor model and conditioning.}
-    Derive the abstract Stage-4 parameters
-    \(u_{A,+},u_{B,+},\epsilon_{\rm mon},P_{\rm mon}\) from a concrete trusted
-    detector model, including finite resolution, calibration, saturation,
-    timing and mode dependence.  The monitor must act before and independently
-    of the later secret basis and bit choices so that conditioning on
-    \(A_{\rm mon}\) is legitimate.
+    \item \textbf{Stage 5A: derive the joint PNA--BS instrument.}
+    Starting from an arbitrary Eve-supplied state, model the trusted
+    beam splitter, destructive monitor POVM, detector efficiency, finite
+    resolution, additive noise, saturation, timing and mode dependence.
+    Derive a certified conditional constraint on the surviving signal state
+    and connect it directly to the Gram overlaps.
 
-    \item \textbf{Benchmark the certified Stage-3 cell relaxation.}
-    The cell-wise outer approximation is now implemented in
-    \texttt{pnp-stage-3.py}.  Rerun the Stage-3 scans, compare them with the
-    historical fixed-support values, refine the partition, and quantify the
-    residual numerical looseness and solver tolerance.
+    \item \textbf{Stage 5B: add optional trusted attenuation.}
+    Extend Stage~5A by a subsequent pure-loss channel of transmissivity
+    \(\lambda\).  Verify explicitly that \(\lambda=1\) reduces to Stage~5A and
+    determine whether the extra attenuation materially improves the
+    security/performance tradeoff or merely implementation flexibility.
 
-    \item \textbf{Benchmark Stage 4.}
-    Run \texttt{pnp-stage-4.py} over the monitor cap and
-    \(\epsilon_{\rm mon}\), study cell convergence, and determine how much
-    monitor leakage can be tolerated before the positive-rate distance
-    collapses.
+    \item \textbf{Physical threshold/performance optimisation.}
+    Once the monitor model is available, jointly study monitor splitting
+    ratio, PNA thresholds, false-accept leakage, \(P_{\rm mon}\), honest
+    accepted brightness, and \(P_{\rm pass|mon}\).  This is the calculation
+    needed to turn the current Stage-4 security-versus-cap scan into an
+    end-to-end key-rate optimisation.
 
-    \item \textbf{Solver accuracy.}
-    The strongest continuum/window calculations currently return
-    \texttt{optimal\_inaccurate} with CLARABEL. Publication-quality scans
-    should be rerun with MOSEK or another higher-accuracy solver.
+    \item \textbf{Stage-4 numerical convergence and solver accuracy.}
+    Quantify cell-refinement error and rerun publication-quality Stage-4
+    scans with MOSEK or another sufficiently accurate solver.  The current
+    \(\epsilon_{\rm mon}=10^{-6}\) value must continue to be labelled as a
+    placeholder until Stage~5 supplies a detector-derived value.
 
     \item \textbf{Revisit the number of test bases.}
-    The apparent saturation near \(M=4\) was found in a regime dominated by
-    the concentration attack. Once that attack is removed by per-pulse
-    monitoring, the optimal value of \(M\) should be re-optimized.
+    The apparent saturation near \(M=4\) was originally found in a regime
+    dominated by the concentration attack.  Once the physical PNA model is in
+    place, the optimal number of phase bases should be re-optimised.
 \end{enumerate}
 
 \section{Working conclusion}
 
-The main conceptual mechanism is now understood. Mean-energy monitoring does
-not control rare bright pulses, and channel loss turns that freedom into a
-post-selection advantage for Eve. Strong attenuation makes the mathematics
-cleaner, but by itself it only rescales the attack. Per-pulse energy monitoring
-directly removes the degree of freedom responsible for the range collapse and
-is therefore the current leading route toward a useful plug-and-play
-phase-matching QKD protocol.
+The present results separate the source-monitoring problem into three levels.
+A first-moment/APN-type guarantee is insufficient: rare bright pulses remain
+compatible with the monitored mean, and channel loss lets those rare
+components dominate the accepted central detections.  Strong trusted
+attenuation changes the overlap kernel and enables the continuum formulation,
+but does not by itself eliminate that concentration freedom.
 
+An accepted-round upper-tail/PNA-type guarantee is sufficient at the abstract
+level.  Stage~4 proves this statement conditionally through the Gram SDP:
+once all but an \(\epsilon_{\rm mon}\) fraction of accepted effective-energy
+mass is confined to a fixed compact region, the rare-bright mechanism is
+removed and useful phase-error bounds are recovered in the present scans.
 
+What remains is the physical reduction.  Stage~5A will derive the accepted
+signal state produced by a joint trusted beam splitter and destructive PNA,
+with the same beam splitter allowed to provide the signal attenuation.
+Stage~5B will add optional further trusted attenuation.  The common phase
+orbit is not the obstacle in either case, because monitoring and attenuation
+occur before the secret phase encoding; the real task is to derive the
+accepted-state photon-number constraints and overlap kernel from the physical
+monitor instrument.
 
 \appendix
 
