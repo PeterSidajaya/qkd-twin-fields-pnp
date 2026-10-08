@@ -14,7 +14,7 @@
 
 \title{Working Notes: Plug-and-Play Twin-Field / Phase-Matching QKD}
 \author{}
-\date{Updated 7 October 2026}
+\date{Updated 8 October 2026}
 
 \begin{document}
 
@@ -51,12 +51,14 @@ positive conditional key rates through the largest distance presently scanned
 the monitor statement from a physical photon-number analyzer.
 
 The next step is therefore a physical monitor model rather than a new
-phase-error formalism.  Stage~5A will treat a trusted beam splitter and
-photon-number analyzer jointly, allowing the same beam splitter both to send a
-large fraction of the incoming light to the monitor and to leave a weak signal
-for encoding.  Stage~5B will add optional trusted attenuation after that
-joint monitor.  The extra attenuator is an implementation/generalisation
-choice, not something required to create the common phase orbit.
+phase-error formalism.  Stage~5A now gives the exact trusted beam-splitter/PNA
+instrument, the accepted-state overlap, and a source-independent reduction
+from a certified surviving-photon tail to a finite Gram SDP.  Its remaining
+physics task is to replace the ideal hard-threshold benchmark by a realistic
+calibrated detector response.  Stage~5B will add optional trusted attenuation
+after that joint monitor.  The extra attenuator is an
+implementation/generalisation choice, not something required to create the
+common phase orbit.
 
 \section{Protocol and security model}
 
@@ -2475,10 +2477,31 @@ untrusted-source Gram analysis.
 \label{sec:stage5a}
 
 Stage~5A treats the trusted beam splitter and the destructive PNA as one
-quantum instrument.  There is no separate attenuation element in this stage.
-The beam splitter itself both sends a large fraction of the incoming light to
-the monitor and leaves the complementary output as the signal mode.  The
-secret phase encoding is applied only after the monitor decision.
+quantum instrument.  There is no separate attenuation element in this stage:
+the beam splitter itself both sends part of the incoming light to the monitor
+and leaves the complementary output as the signal mode.  The secret phase
+encoding is applied only after the monitor decision.
+
+The logical structure of Stage~5A is
+\begin{equation}
+\boxed{
+\text{physical BS+PNA}
+\ \longrightarrow\
+H_m(N_+)
+\ \longrightarrow\
+\delta(N_+)
+\ \longrightarrow\
+\epsilon_5
+\ \longrightarrow\
+\beta\le\epsilon_5
+\ \longrightarrow\
+\text{finite Gram SDP}.
+}
+\label{eq:stage5a-roadmap}
+\end{equation}
+The exact source distribution \(p_m\) is useful for deriving the physical
+instrument, but it need not remain as a variable in the final relaxed SDP once
+a source-independent accepted-tail bound has been certified.
 
 For one arm define
 \[
@@ -2488,7 +2511,9 @@ For one arm define
 \]
 Let \(\tau_{\rm s}\) be the signal-port transmissivity, so that the monitor
 fraction is \(1-\tau_{\rm s}\).  For an ideal lossless beam splitter,
-\(M=C+N\).
+\[
+    M=C+N.
+\]
 
 \subsubsection{Exact beam-splitter map}
 
@@ -2524,9 +2549,9 @@ where
     \Pr(A_{\rm mon}\mid C=c).
 \]
 The response coefficients \(a_c\) are where a later physical detector model
-will enter: detector efficiency, finite resolution, electronic noise,
-thresholds, saturation, and related trusted imperfections all modify this
-response.
+enters: detector efficiency, finite resolution, electronic noise, thresholds,
+saturation, timing and mode dependence, and related trusted imperfections all
+modify this response.
 
 The unnormalised accepted signal--Eve state is
 \begin{equation}
@@ -2651,7 +2676,7 @@ As in Stage~1, Fock coherences drop out because the phase-difference operator
 is diagonal in photon number.
 
 The same overlap can be written directly in terms of the incoming
-distribution.  Define
+distribution.  For a fixed incoming Fock number \(m\), define
 \begin{equation}
     F_m(\theta)
     :=
@@ -2660,10 +2685,20 @@ distribution.  Define
       \binom mc
       (1-\tau_{\rm s})^c
       \tau_{\rm s}^{m-c}
-      e^{i\theta(m-c)}
+      e^{i\theta(m-c)}.
     \label{eq:stage5a-Fm}
 \end{equation}
-and
+This has the direct interpretation
+\begin{equation}
+    F_m(\theta)
+    =
+    \mathbb E\!\left[
+      a_C e^{i\theta N}
+      \mid M=m
+    \right].
+    \label{eq:stage5a-Fm-expectation}
+\end{equation}
+At \(\theta=0\),
 \begin{equation}
     A_m
     :=
@@ -2672,7 +2707,10 @@ and
     \Pr(A_{\rm mon}\mid M=m).
     \label{eq:stage5a-Am}
 \end{equation}
-Then
+
+Substituting \(q_n^{\rm acc}=\widetilde q_n/P_{\rm mon}\) from
+Eq.~\eqref{eq:stage5a-qacc} into Eq.~\eqref{eq:stage5a-overlap-q}, exchanging
+the \(m,n\) sums, and writing \(c=m-n\) gives
 \begin{equation}
     \boxed{
     \Lambda^{\rm acc}(\theta)
@@ -2685,6 +2723,35 @@ Then
     }
     \label{eq:stage5a-direct-overlap}
 \end{equation}
+Thus \(q_n^{\rm acc}\) has not been discarded physically; it has only been
+eliminated algebraically.  Equations~\eqref{eq:stage5a-overlap-q} and
+\eqref{eq:stage5a-direct-overlap} are the same quantity written in two
+different coordinates:
+\[
+    p_m
+    \longrightarrow
+    q_n^{\rm acc}
+    \longrightarrow
+    \Lambda^{\rm acc},
+    \qquad\text{or directly}\qquad
+    p_m
+    \longrightarrow
+    F_m
+    \longrightarrow
+    \Lambda^{\rm acc}.
+\]
+As a check, if there is no monitoring or postselection, \(a_c=1\) for all
+\(c\), then the binomial theorem gives
+\begin{equation}
+    F_m(\theta)
+    =
+    \left(
+      1-\tau_{\rm s}
+      +\tau_{\rm s}e^{i\theta}
+    \right)^m,
+    \label{eq:stage5a-Fm-no-monitor}
+\end{equation}
+which is exactly the trusted-loss kernel of Stage~2.
 
 For Alice and Bob, let the arbitrary joint input diagonal be
 \(p_{m_A,m_B}\).  No product-source assumption is made.  For independent
@@ -2716,9 +2783,13 @@ and
 
 \subsubsection{Direct tail certification on the surviving signal}
 
-Stage~5A can formulate the security cutoff directly in terms of the
-\emph{actual} surviving signal photon number \(N\).  For a chosen cutoff
-\(N_+\), define
+Equation~\eqref{eq:stage5a-direct-overlap} is exact, but retaining an arbitrary
+infinite distribution \(p_m\) inside the phase-error SDP would be inconvenient.
+The security reduction therefore asks a simpler question: after the monitor
+accepts, how much probability can remain above a chosen surviving-signal
+photon-number cutoff \(N_+\)?
+
+For a fixed incoming Fock number \(m\), define
 \begin{equation}
 \begin{aligned}
     H_m(N_+)
@@ -2734,7 +2805,7 @@ Stage~5A can formulate the security cutoff directly in terms of the
     \label{eq:stage5a-Hm}
 \end{aligned}
 \end{equation}
-The source-independent worst case is
+The source-independent worst-case scalar is
 \begin{equation}
     \boxed{
     \delta(N_+)
@@ -2743,42 +2814,78 @@ The source-independent worst case is
     }
     \label{eq:stage5a-delta}
 \end{equation}
-For any Eve-supplied input distribution,
-\begin{equation}
+Here \(\delta(N_+)\) is merely notation for a tail-probability bound; it is not
+a Kronecker delta.
+
+For any Eve-supplied distribution \(p_m\),
+\begin{align}
     \Pr(A_{\rm mon},N>N_+)
-    \le
-    \delta(N_+),
+    &=
+    \sum_m p_mH_m(N_+)
+    \nonumber\\
+    &\le
+    \sum_m p_m\delta(N_+)
+    =
+    \delta(N_+).
     \label{eq:stage5a-unconditional-tail}
-\end{equation}
-and hence, using the observed monitor acceptance probability,
+\end{align}
+The extremizer of this particular linear auxiliary optimization can be a point
+mass on an \(m\) maximizing \(H_m\).  This does \emph{not} imply that a fixed
+Fock state is Eve's optimal attack for the full QKD phase-error problem.
+
+Conditioning on monitor acceptance gives
 \begin{equation}
     \boxed{
     \Pr(N>N_+\mid A_{\rm mon})
     \le
-    \frac{\delta(N_+)}{P_{\rm mon}}.
+    \epsilon_5^{(1)}(N_+)
+    :=
+    \min\!\left\{
+      1,\,
+      \frac{\delta(N_+)}{P_{\rm mon}}
+    \right\}.
     }
     \label{eq:stage5a-conditional-tail}
 \end{equation}
-For two arms a simple conservative union bound gives
+Thus \(\epsilon_5^{(1)}\) is not a new physical assumption: it is the
+conditional bad-tail probability obtained from the physical monitor response,
+the beam splitter, and the observed \(P_{\rm mon}\).
+
+For two arms, let \(A_{\rm mon}\) now denote the event that both trusted local
+monitors accept.  A conservative union bound gives
 \begin{equation}
-    \Pr(
+\begin{aligned}
+    &\Pr(
       N_A>N_{A,+}\ \text{or}\ N_B>N_{B,+}
       \mid A_{\rm mon}
     )
-    \le
-    \frac{
-      \delta_A(N_{A,+})+\delta_B(N_{B,+})
-    }{
-      P_{\rm mon}
-    }.
+    \\
+    &\qquad\le
+    \boxed{
+    \epsilon_5
+    :=
+    \min\!\left\{
+      1,\,
+      \frac{
+        \delta_A(N_{A,+})
+        +
+        \delta_B(N_{B,+})
+      }{
+        P_{\rm mon}
+      }
+    \right\}.
+    }
     \label{eq:stage5a-twoarm-tail}
+\end{aligned}
 \end{equation}
-A tighter joint bound can be studied later if necessary.
+The union bound remains valid for arbitrary Alice--Bob source correlations.
+A tighter joint tail bound may be substituted later without changing the Gram
+formulation below.
 
-\subsubsection{Ideal upper-threshold monitor: first architecture test}
+\subsubsection{Ideal upper-threshold monitor: architecture sanity check only}
 
-Before including detector inefficiency and noise, the first sanity check is an
-ideal photon-number-resolving upper-threshold monitor,
+Before including detector inefficiency and noise, it is useful to test the
+optical architecture with the ideal response
 \begin{equation}
     \boxed{
     a_c
@@ -2787,9 +2894,10 @@ ideal photon-number-resolving upper-threshold monitor,
     }
     \label{eq:stage5a-ideal-response}
 \end{equation}
-This is an ideal \emph{upper-threshold} photon-number monitor rather than the
-full two-threshold PNA of Peng, Xu, and Guo.  Only the upper side is needed to
-test the concentration mechanism.
+This subsection is an idealized benchmark, not the final detector model.  The
+closed-form maximizer derived below relies essentially on the hard step
+function in Eq.~\eqref{eq:stage5a-ideal-response}; it need not survive for a
+general realistic response \(a_c\).
 
 For this ideal response,
 \begin{equation}
@@ -2801,34 +2909,86 @@ For this ideal response,
     ).
     \label{eq:stage5a-ideal-H}
 \end{equation}
-Since \(C=m-N\), this can be written as
+Because \(C=m-N\), the two conditions are
+\[
+    N\ge m-c_{\max},
+    \qquad
+    N\ge N_++1.
+\]
+Therefore
 \begin{equation}
     H_m(N_+)
     =
-    \sum_{n=\max\{N_++1,m-c_{\max}\}}^{m}
-    \binom mn
-    \tau_{\rm s}^{n}
-    (1-\tau_{\rm s})^{m-n}.
-    \label{eq:stage5a-ideal-H-sum}
+    \Pr\!\left[
+      \operatorname{Bin}(m,\tau_{\rm s})
+      \ge
+      \max\{N_++1,m-c_{\max}\}
+    \right].
+    \label{eq:stage5a-ideal-H-binomial}
 \end{equation}
-
-In this ideal case the supremum over the arbitrary incoming Fock number can
-actually be located exactly.  Let
+The two thresholds cross at
 \begin{equation}
+    \boxed{
     m_*:=c_{\max}+N_++1.
+    }
     \label{eq:stage5a-mstar}
 \end{equation}
-For \(m\le m_*\), the monitor condition is no more restrictive than the
-condition \(N>N_+\), so
+
+For \(m\le m_*\),
 \[
-    H_m(N_+)=\Pr[\operatorname{Bin}(m,\tau_{\rm s})>N_+],
+    m-c_{\max}\le N_++1,
 \]
-which is nondecreasing in \(m\).  For \(m\ge m_*\), the event
-\(C\le c_{\max}\) already implies \(N>N_+\), so
+so the monitor condition is no more restrictive than \(N>N_+\), and
+\begin{equation}
+    H_m(N_+)
+    =
+    \Pr[
+      \operatorname{Bin}(m,\tau_{\rm s})
+      \ge N_++1
+    ].
+    \label{eq:stage5a-H-left}
+\end{equation}
+The threshold on the right is fixed.  Coupling
 \[
-    H_m(N_+)=\Pr[\operatorname{Bin}(m,1-\tau_{\rm s})\le c_{\max}],
+    N_{m+1}=N_m+X,
+    \qquad
+    X\sim\operatorname{Bernoulli}(\tau_{\rm s}),
 \]
-which is nonincreasing in \(m\).  Therefore the maximum occurs at \(m_*\):
+shows that this probability is nondecreasing in \(m\).
+
+For \(m\ge m_*\),
+\[
+    m-c_{\max}\ge N_++1,
+\]
+so monitor acceptance itself already implies \(N>N_+\).  Hence
+\begin{align}
+    H_m(N_+)
+    &=
+    \Pr[
+      N\ge m-c_{\max}
+    ]
+    \nonumber\\
+    &=
+    \Pr[
+      C\le c_{\max}
+    ]
+    \nonumber\\
+    &=
+    \Pr[
+      \operatorname{Bin}(m,1-\tau_{\rm s})
+      \le c_{\max}
+    ].
+    \label{eq:stage5a-H-right}
+\end{align}
+Again the threshold is now fixed.  Coupling
+\[
+    C_{m+1}=C_m+Y,
+    \qquad
+    Y\sim\operatorname{Bernoulli}(1-\tau_{\rm s}),
+\]
+shows that this probability is nonincreasing in \(m\).
+
+Consequently \(H_m\) increases up to the crossing and decreases after it, so
 \begin{equation}
     \boxed{
     \delta_{\rm ideal}(N_+)
@@ -2850,63 +3010,319 @@ Equivalently,
       \le c_{\max}
     ].
 \]
+The point of this calculation is only to test whether the one-BS architecture
+can, in the cleanest possible detector limit, make the accepted high-\(N\)
+tail sufficiently small.  For a realistic response \(a_c\), the general
+definition \(\delta(N_+)=\sup_mH_m(N_+)\) remains, but the closed-form
+\(m_*\) need not.
 
-This closed form is the first quantitative feasibility test for the one-BS
-architecture.  For a very small signal fraction \(\tau_{\rm s}\), a monitor
-threshold \(c_{\max}\) of order the bright incoming pulse can coexist with a
-very small probability that more than \(N_+\) photons escape into the signal
-port.  The point of the calculation is to verify this in a worst-case,
-source-independent way rather than infer it only from the conditional mean
-\(\tau_{\rm s}m\).
+\subsubsection{From the physical tail bound to a finite accepted-state model}
 
-\subsubsection{Finite-Fock Gram reduction when the surviving cutoff is small}
-
-If Eq.~\eqref{eq:stage5a-conditional-tail} gives a useful bound for modest
-\(N_+\), no Stage-3 continuum variable is needed in Stage~5A.  Decompose the
-accepted surviving distribution as
-\[
+Suppose the two-arm calculation certifies Eq.~\eqref{eq:stage5a-twoarm-tail}.
+Decompose the monitor-accepted surviving photon-number distribution as
+\begin{equation}
     q^{\rm acc}
     =
-    q^{\rm good}+q^{\rm bad},
-    \qquad
-    \beta\le\epsilon_5,
-\]
-with the good part supported on
+    q^{\rm good}
+    +
+    q^{\rm bad},
+    \label{eq:stage5a-good-bad}
+\end{equation}
+where
 \[
-    0\le n_A\le N_{A,+},
-    \qquad
-    0\le n_B\le N_{B,+}.
-\]
-Then
-\begin{equation}
-\begin{aligned}
-    \Lambda_{st}^{\rm acc}
-    =
-    \sum_{\substack{
-      0\le n_A\le N_{A,+}\\
+    \operatorname{supp}q^{\rm good}
+    \subseteq
+    \mathcal N_+
+    :=
+    \left\{
+      (n_A,n_B):
+      0\le n_A\le N_{A,+},\
       0\le n_B\le N_{B,+}
-    }}
-      q_{n_A,n_B}^{\rm good}
+    \right\},
+\]
+and
+\begin{equation}
+    \beta
+    :=
+    \sum_{(n_A,n_B)\notin\mathcal N_+}
+    q^{\rm acc}_{n_A,n_B}
+    \le
+    \epsilon_5.
+    \label{eq:stage5a-beta}
+\end{equation}
+We use \(q_{n_A,n_B}\) below for the \emph{unnormalised good mass}, so
+\begin{equation}
+    q_{n_A,n_B}\ge0,
+    \qquad
+    \sum_{(n_A,n_B)\in\mathcal N_+}
+    q_{n_A,n_B}
+    +
+    \beta
+    =
+    1.
+    \label{eq:stage5a-q-normalization}
+\end{equation}
+
+For any pair of signal labels \(s,t\), define
+\begin{equation}
+    \Lambda_{st}^{\rm good}(q)
+    :=
+    \sum_{(n_A,n_B)\in\mathcal N_+}
+    q_{n_A,n_B}
+    e^{
+      i\Delta\phi_A^{st}n_A
+      +
+      i\Delta\phi_B^{st}n_B
+    }.
+    \label{eq:stage5a-good-overlap}
+\end{equation}
+The omitted bad component has total mass \(\beta\), and every phase factor has
+unit modulus, so its overlap contribution \(r_{st}\) obeys
+\[
+    |r_{st}|\le\beta.
+\]
+Therefore every physical accepted state satisfies
+\begin{equation}
+    \boxed{
+    \left|
+      \Lambda_{st}^{\rm acc}
+      -
+      \Lambda_{st}^{\rm good}(q)
+    \right|
+    \le
+    \beta.
+    }
+    \label{eq:stage5a-overlap-tail}
+\end{equation}
+
+This is the step at which the incoming distribution \(p_{m_A,m_B}\) ceases to
+appear in the relaxed security optimization.  We retain only a consequence of
+the exact PNA--BS instrument that is sufficient for the Gram proof: the
+accepted-state good support and the certified bad mass.  Hence
+\begin{equation}
+    \boxed{
+    \mathcal F_{\rm physical\ PNA\text{-}BS}
+    \subseteq
+    \mathcal F_{\rm Stage\,5A\ tail\ relaxation}.
+    }
+    \label{eq:stage5a-feasible-inclusion}
+\end{equation}
+Maximizing phase error over the right-hand set is therefore conservative.  It
+does not assert that every relaxed \(q\) is produced by a physical incoming
+\(p_m\), nor that a point-mass \(p_m\) is Eve's optimal full attack.
+
+\subsubsection{Complete Stage-5A finite Gram SDP}
+
+Let \(\mathcal S\) be the finite set of signal labels used in the protocol and
+let
+\[
+    \mathcal Z=\{+,-,\varnothing\}
+\]
+denote the central-node announcements.  Condition throughout on the event
+\(A_{\rm mon}\) that the trusted local monitors accept.  Let
+\[
+    G[(z,s),(z',t)]
+    =
+    \langle e_s^z|e_t^{z'}\rangle
+\]
+be the Gram matrix of Eve's residual vectors for this accepted ensemble, and
+define
+\begin{equation}
+    \Gamma_{st}(G)
+    :=
+    \sum_{z\in\mathcal Z}
+    G[(z,s),(z,t)].
+    \label{eq:stage5a-Gamma}
+\end{equation}
+Isometry conservation requires
+\[
+    \Gamma_{st}(G)
+    =
+    \Lambda_{st}^{\rm acc}
+\]
+for every physical attack.  Combining this with
+Eq.~\eqref{eq:stage5a-overlap-tail} gives the SOC constraint
+\begin{equation}
+    \boxed{
+    \left|
+      \Gamma_{st}(G)
+      -
+      \Lambda_{st}^{\rm good}(q)
+    \right|
+    \le
+    \beta,
+    \qquad
+    s<t.
+    }
+    \label{eq:stage5a-gram-soc}
+\end{equation}
+
+The observed accepted-ensemble statistics fix the Gram diagonal:
+\begin{equation}
+    \boxed{
+    G[(z,s),(z,s)]
+    =
+    P(z\mid s,A_{\rm mon}),
+    \qquad
+    z\in\mathcal Z,\ s\in\mathcal S.
+    }
+    \label{eq:stage5a-observed-diagonal}
+\end{equation}
+These conditional probabilities include the successful \(+\) and \(-\)
+announcements and the failure outcome \(\varnothing\), and satisfy
+\[
+    \sum_{z\in\mathcal Z}
+    P(z\mid s,A_{\rm mon})=1.
+\]
+
+For the four key-basis labels \(ab\in\{00,01,10,11\}\), define the observed
+conditional pass probability
+\begin{equation}
+    P_{\rm pass|mon}
+    :=
+    \frac14
+    \sum_{a,b=0}^1
+    \left[
+      G[(+,ab),(+,ab)]
+      +
+      G[(-,ab),(-,ab)]
+    \right].
+    \label{eq:stage5a-ppass}
+\end{equation}
+Because the diagonal is fixed by observations, \(P_{\rm pass|mon}\) is a
+constant in the optimization.  The A7 phase-error functional is
+\begin{equation}
+\boxed{
+\begin{aligned}
+    e_{\rm ph}(G)
+    =
+    \frac12
+    +
+    \frac{1}{4P_{\rm pass|mon}}
+    \operatorname{Re}\Big[
+      &G[(+,00),(+,11)]
+      -
+      G[(-,00),(-,11)]
+      \\
+      &-
+      G[(+,01),(+,10)]
+      +
+      G[(-,01),(-,10)]
+    \Big].
+\end{aligned}
+}
+\label{eq:stage5a-eph}
+\end{equation}
+
+The complete asymptotic Stage-5A outer-relaxation SDP is therefore
+\begin{equation}
+\boxed{
+\begin{aligned}
+    \text{maximize}_{G,\{q_{n_A,n_B}\},\beta}
+    \quad&
+    e_{\rm ph}(G)
+    \\
+    \text{subject to}\quad&
+    G\succeq0,
+    \\
+    &
+    G[(z,s),(z,s)]
+    =
+    P(z\mid s,A_{\rm mon})
+    \quad
+    \forall z,s,
+    \\
+    &
+    q_{n_A,n_B}\ge0
+    \quad
+    \forall (n_A,n_B)\in\mathcal N_+,
+    \\
+    &
+    0\le\beta\le\epsilon_5,
+    \\
+    &
+    \sum_{(n_A,n_B)\in\mathcal N_+}
+    q_{n_A,n_B}
+    +
+    \beta
+    =
+    1,
+    \\
+    &
+    \left|
+      \sum_{z\in\mathcal Z}G[(z,s),(z,t)]
+      -
+      \sum_{(n_A,n_B)\in\mathcal N_+}
+      q_{n_A,n_B}
       e^{
         i\Delta\phi_A^{st}n_A
-        +i\Delta\phi_B^{st}n_B
+        +
+        i\Delta\phi_B^{st}n_B
       }
-    +
-    r_{st},
-    \qquad
-    |r_{st}|\le\beta.
-    \label{eq:stage5a-finite-overlap}
+    \right|
+    \le
+    \beta
+    \quad
+    \forall s<t.
 \end{aligned}
+}
+\label{eq:stage5a-final-sdp}
 \end{equation}
-This can be inserted directly into the same Gram phase-error SDP.  There are
-no cell first moments or Taylor remainders in this finite-Fock version.
+The complex-modulus inequalities are second-order-cone constraints, so the
+problem remains an SDP/SOCP-representable convex optimization.
 
-The preliminary script \texttt{phase/pnp-stage-5a.py} is intended first to
-implement the exact ideal-threshold quantity
-Eq.~\eqref{eq:stage5a-ideal-delta}, together with the general beam-splitter/PNA
-response functions above.  It should be treated as exploratory until a
-realistic detector response \(a_c\) and a corresponding certified
-worst-case tail calculation are supplied.
+The only Stage-5A monitor information entering
+Eq.~\eqref{eq:stage5a-final-sdp} is the certified number
+\(\epsilon_5\) and the chosen finite cutoffs \(N_{A,+},N_{B,+}\), together
+with the experimentally observed accepted-ensemble probabilities.  The
+unknown incoming \(p_{m_A,m_B}\) no longer appears.  This is an intentional
+outer relaxation: it may be looser than enforcing the full exact PNA--BS map,
+but it is finite and source independent.
+
+After solving for the worst-case \(e_{\rm ph}^\star\), the asymptotic key rate
+per monitor-accepted round is
+\begin{equation}
+    R_{\rm acc}
+    =
+    P_{\rm pass|mon}
+    \left[
+      1-h_2(e_{\rm ph}^\star)
+      -f_{\rm ec}h_2(e_{\rm bit})
+    \right],
+    \label{eq:stage5a-rate-accepted}
+\end{equation}
+and the rate per original incoming round is
+\begin{equation}
+    \boxed{
+    R_{\rm original}
+    =
+    P_{\rm mon}R_{\rm acc}.
+    }
+    \label{eq:stage5a-rate-original}
+\end{equation}
+As in Stage~4, if the experimentally supplied usable-event probability is
+already joint in monitor acceptance and central pass, \(P_{\rm mon}\) must not
+be multiplied a second time.
+
+\subsubsection{Current Stage-5A status}
+
+The quantum instrument, exact accepted-state overlap, source-independent tail
+reduction, ideal hard-threshold benchmark, and the resulting finite Gram SDP
+are now explicit.  The ideal formula
+Eq.~\eqref{eq:stage5a-ideal-delta} should be regarded as an architecture
+sanity check only.
+
+The remaining Stage-5A physics task is to replace the ideal step response by a
+realistic, calibrated \(a_c\), and then obtain a certified upper bound on
+\[
+    \sup_m H_m(N_+)
+\]
+for that response.  Detector inefficiency, electronic noise, finite
+resolution, saturation, timing and mode dependence must enter through this
+physical response model.  The preliminary script
+\texttt{phase/pnp-stage-5a.py} implements the ideal benchmark and general
+response functions but has not yet been promoted to the final realistic
+detector calculation.
 
 \subsection{Stage 5B: PNA--beam splitter plus additional trusted attenuation}
 
@@ -2926,12 +3342,12 @@ loss and, analytically, an additional known thinning map.  Setting
 The main unresolved items are now:
 
 \begin{enumerate}
-    \item \textbf{Stage 5A: derive the joint PNA--BS instrument.}
-    Starting from an arbitrary Eve-supplied state, model the trusted
-    beam splitter, destructive monitor POVM, detector efficiency, finite
-    resolution, additive noise, saturation, timing and mode dependence.
-    Derive a certified conditional constraint on the surviving signal state
-    and connect it directly to the Gram overlaps.
+    \item \textbf{Stage 5A: realistic PNA response and certified tail.}
+    The exact joint beam-splitter/PNA instrument and finite Gram reduction are
+    now explicit.  Replace the ideal hard-threshold response by a calibrated
+    model including detector efficiency, finite resolution, additive noise,
+    saturation, timing and mode dependence, and derive a certified upper bound
+    on \(\sup_m H_m(N_+)\) for that response.
 
     \item \textbf{Stage 5B: add optional trusted attenuation.}
     Extend Stage~5A by a subsequent pure-loss channel of transmissivity
@@ -2973,14 +3389,16 @@ once all but an \(\epsilon_{\rm mon}\) fraction of accepted effective-energy
 mass is confined to a fixed compact region, the rare-bright mechanism is
 removed and useful phase-error bounds are recovered in the present scans.
 
-What remains is the physical reduction.  Stage~5A will derive the accepted
-signal state produced by a joint trusted beam splitter and destructive PNA,
-with the same beam splitter allowed to provide the signal attenuation.
-Stage~5B will add optional further trusted attenuation.  The common phase
-orbit is not the obstacle in either case, because monitoring and attenuation
-occur before the secret phase encoding; the real task is to derive the
-accepted-state photon-number constraints and overlap kernel from the physical
-monitor instrument.
+Stage~5A now makes the first physical reduction explicit.  A joint trusted
+beam splitter and destructive PNA determine an exact accepted signal state and
+overlap kernel; a certified bound on the accepted high-photon-number tail then
+reduces the arbitrary incoming source to a finite accepted-state Gram SDP.
+The remaining Stage-5A task is detector realism: the ideal hard-threshold
+formula is only a benchmark, while the final proof must certify the same tail
+quantity for a calibrated response \(a_c\).  Stage~5B will add optional
+further trusted attenuation.  The common phase orbit is not the obstacle in
+either case because monitoring and attenuation occur before the secret phase
+encoding.
 
 \appendix
 
