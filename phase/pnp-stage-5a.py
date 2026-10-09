@@ -8,6 +8,7 @@ This file implements the Stage-5A chain written in main.tex:
         -> H_m(N_plus)
         -> delta(N_plus)
         -> epsilon_5
+        -> occupancy caps on q_{n_A,n_B}
         -> beta <= epsilon_5
         -> finite accepted-Fock Gram SDP.
 
@@ -54,22 +55,39 @@ where
 and A_m = F_m(0).
 
 The final Stage-5A SDP does NOT retain the unknown incoming distribution p_m.
-Instead, the physical monitor model is used to certify
+Instead, the physical monitor model is used to certify both
 
     Pr[
         N_A > N_A_plus or N_B > N_B_plus
         | both monitors accept
-    ] <= epsilon_5.
+    ] <= epsilon_5,
 
-The accepted surviving distribution is then decomposed into a finite good
-component plus arbitrary bad mass beta <= epsilon_5.  The good component is
-represented exactly on the rectangular Fock support
+and additional occupancy bounds on the accepted finite-Fock probabilities.
+For the ideal hard-threshold monitor these include rigorous marginal bounds
+
+    Pr(N_A=n | A_mon) <= B_A(n)/P_mon,
+    Pr(N_B=n | A_mon) <= B_B(n)/P_mon,
+
+and joint bounds
+
+    Pr(N_A=n_A,N_B=n_B | A_mon)
+      <= B_A(n_A) B_B(n_B) / P_mon,
+
+where B_X(n) is the largest possible unnormalised probability of accepting
+and leaving exactly n signal photons in arm X, optimized over the arbitrary
+incoming Fock number.
+
+The accepted surviving distribution is decomposed into a finite good component
+plus arbitrary bad mass beta <= epsilon_5.  The good component is represented
+exactly on the rectangular Fock support
 
     0 <= n_A <= N_A_plus,
     0 <= n_B <= N_B_plus,
 
-and the bad component contributes at most beta in modulus to every overlap.
-This is an outer relaxation of the exact PNA-BS instrument.
+and is constrained by the monitor-derived occupancy caps.  The bad component
+contributes at most beta in modulus to every overlap.  This is still an outer
+relaxation of the exact PNA-BS instrument, but it is substantially tighter than
+the earlier tail-only relaxation.
 
 Ideal architecture benchmark
 ----------------------------
@@ -640,6 +658,171 @@ def ideal_two_arm_interface(
     )
 
 
+def ideal_exact_n_numerator_bound(
+    n: int,
+    tau_s: float,
+    c_max: int,
+) -> tuple[float, int]:
+    """
+    Source-independent numerator bound for the ideal hard-threshold monitor.
+
+    For a fixed surviving photon number n,
+
+        T_{n|m}
+          = Pr(A_mon, N=n | M=m)
+          = Bin(m,n;tau_s) * 1[m-n <= c_max].
+
+    Hence the allowed m range is
+
+        n <= m <= n + c_max.
+
+    Over this range, the ratio of consecutive terms is
+
+        T_{n|m+1}/T_{n|m}
+          = (m+1)/(m+1-n) * (1-tau_s),
+
+    so the sequence increases until m is near n/tau_s and then decreases.
+    We evaluate the exact boundary/mode candidates and return
+
+        B_n = sup_m T_{n|m}
+
+    together with one maximizing m.
+
+    This is an UNNORMALISED bound.  Divide by the observed P_mon for a
+    conditional accepted-ensemble occupancy bound.
+    """
+    _check_nonnegative_int("n", n)
+    _check_nonnegative_int("c_max", c_max)
+    _check_tau(tau_s)
+
+    lo = int(n)
+    hi = int(n + c_max)
+
+    # The unconstrained mode in m lies at floor(n/tau_s), with a possible
+    # adjacent tie when n/tau_s is integral.  Checking neighboring integers
+    # plus the interval endpoints is robust to floating-point roundoff.
+    mode = int(np.floor(n / tau_s)) if n > 0 else 0
+    candidates = {
+        lo,
+        hi,
+        max(lo, min(hi, mode - 1)),
+        max(lo, min(hi, mode)),
+        max(lo, min(hi, mode + 1)),
+    }
+
+    best_m = lo
+    best = -1.0
+    for m in sorted(candidates):
+        val = float(binom.pmf(n, m, tau_s))
+        if val > best:
+            best = val
+            best_m = int(m)
+
+    return float(best), int(best_m)
+
+
+def ideal_occupancy_caps(
+    n_plus: int,
+    tau_s: float,
+    c_max: int,
+    p_mon_both: float,
+) -> tuple[np.ndarray, np.ndarray]:
+    """
+    Conditional one-arm occupancy caps for n=0,...,n_plus.
+
+    Returns
+    -------
+    caps : ndarray
+        caps[n] is the rigorous bound
+
+            Pr(N_X=n | both monitors accept)
+              <= min(1, B_X(n)/P_mon,both).
+
+        The use of P_mon,both is conservative: the joint event
+        {both accept, N_X=n} is a subset of the local event
+        {monitor X accepts, N_X=n}.
+    maximizers : ndarray
+        One incoming Fock number m attaining B_X(n) for each n.
+    """
+    _check_nonnegative_int("n_plus", n_plus)
+    _check_probability("p_mon_both", p_mon_both, positive=True)
+
+    caps = np.zeros(n_plus + 1, dtype=float)
+    maximizers = np.zeros(n_plus + 1, dtype=int)
+
+    for n in range(n_plus + 1):
+        numerator, m_star = ideal_exact_n_numerator_bound(
+            n=n,
+            tau_s=tau_s,
+            c_max=c_max,
+        )
+        caps[n] = min(1.0, numerator / p_mon_both)
+        maximizers[n] = m_star
+
+    return caps, maximizers
+
+
+def ideal_two_arm_occupancy_caps(
+    *,
+    nA_plus: int,
+    nB_plus: int,
+    tau_s_a: float,
+    tau_s_b: float,
+    c_max_a: int,
+    c_max_b: int,
+    p_mon_both: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
+    """
+    Rigorous accepted-ensemble occupancy caps for arbitrary A-B correlations.
+
+    Let
+
+        B_A(n_A) = sup_{m_A} Pr(A_A,N_A=n_A | m_A),
+        B_B(n_B) = sup_{m_B} Pr(A_B,N_B=n_B | m_B).
+
+    Then, for an arbitrary correlated joint source p_{m_A,m_B},
+
+        Pr(N_A=n_A | both accept)
+          <= B_A(n_A)/P_mon,both,
+
+        Pr(N_B=n_B | both accept)
+          <= B_B(n_B)/P_mon,both,
+
+    and
+
+        Pr(N_A=n_A,N_B=n_B | both accept)
+          <= B_A(n_A) B_B(n_B)/P_mon,both.
+
+    The product in the joint numerator is valid because the trusted local
+    instruments factor conditioned on (m_A,m_B), while p_{m_A,m_B} itself is
+    left completely arbitrary.
+    """
+    caps_a, _ = ideal_occupancy_caps(
+        nA_plus, tau_s_a, c_max_a, p_mon_both
+    )
+    caps_b, _ = ideal_occupancy_caps(
+        nB_plus, tau_s_b, c_max_b, p_mon_both
+    )
+
+    # Recover unnormalised B_X from the conditional caps carefully.  If a
+    # conditional cap was clipped at 1, recompute the numerator instead of
+    # multiplying the clipped value by P_mon.
+    b_a = np.asarray([
+        ideal_exact_n_numerator_bound(n, tau_s_a, c_max_a)[0]
+        for n in range(nA_plus + 1)
+    ])
+    b_b = np.asarray([
+        ideal_exact_n_numerator_bound(n, tau_s_b, c_max_b)[0]
+        for n in range(nB_plus + 1)
+    ])
+
+    joint = np.minimum(
+        1.0,
+        np.outer(b_a, b_b) / p_mon_both,
+    )
+    return caps_a, caps_b, joint
+
+
 def scan_general_delta(
     n_plus: int,
     tau_s: float,
@@ -734,6 +917,9 @@ def solve_stage5a_sdp(
     epsilon_5: float,
     prob_of: dict[int, Sequence[float]],
     p_mon: float | None = None,
+    marginal_cap_a: Sequence[float] | None = None,
+    marginal_cap_b: Sequence[float] | None = None,
+    joint_cap: np.ndarray | None = None,
     f_ec: float = F_EC,
     solver=None,
     solver_opts=None,
@@ -765,6 +951,15 @@ def solve_stage5a_sdp(
         Optional observed physical monitor acceptance probability.  If
         supplied, R_original = p_mon * R_acc is reported.  It does not enter
         the conditional Gram SDP itself.
+    marginal_cap_a, marginal_cap_b
+        Optional rigorous upper bounds on accepted-ensemble marginal
+        occupancies for n=0,...,nA_plus / nB_plus.  These constrain the good
+        masses by
+            sum_{n_B} q[n_A,n_B] <= marginal_cap_a[n_A],
+            sum_{n_A} q[n_A,n_B] <= marginal_cap_b[n_B].
+    joint_cap
+        Optional array of shape (nA_plus+1,nB_plus+1) with rigorous upper
+        bounds on individual accepted joint occupancies q[n_A,n_B].
 
     The SDP variables are
         G      : Gram matrix of central-node residual vectors,
@@ -777,6 +972,7 @@ def solve_stage5a_sdp(
         q >= 0,
         0 <= beta <= epsilon_5,
         sum(q) + beta = 1,
+        optional monitor-derived marginal/joint occupancy caps,
         |Gamma_st(G) - Lambda_good_st(q)| <= beta.
 
     The incoming source distribution p_{m_A,m_B} does not appear.  This is an
@@ -790,6 +986,42 @@ def solve_stage5a_sdp(
 
     if p_mon is not None:
         _check_probability("p_mon", p_mon, positive=True)
+
+    cap_a = None
+    cap_b = None
+    cap_joint = None
+
+    if marginal_cap_a is not None:
+        cap_a = np.asarray(marginal_cap_a, dtype=float)
+        if cap_a.shape != (nA_plus + 1,):
+            raise ValueError(
+                "marginal_cap_a must have length nA_plus+1."
+            )
+        if np.any(cap_a < 0.0) or np.any(cap_a > 1.0 + 1e-12):
+            raise ValueError("marginal_cap_a entries must lie in [0,1].")
+        cap_a = np.clip(cap_a, 0.0, 1.0)
+
+    if marginal_cap_b is not None:
+        cap_b = np.asarray(marginal_cap_b, dtype=float)
+        if cap_b.shape != (nB_plus + 1,):
+            raise ValueError(
+                "marginal_cap_b must have length nB_plus+1."
+            )
+        if np.any(cap_b < 0.0) or np.any(cap_b > 1.0 + 1e-12):
+            raise ValueError("marginal_cap_b entries must lie in [0,1].")
+        cap_b = np.clip(cap_b, 0.0, 1.0)
+
+    if joint_cap is not None:
+        cap_joint = np.asarray(joint_cap, dtype=float)
+        expected = (nA_plus + 1, nB_plus + 1)
+        if cap_joint.shape != expected:
+            raise ValueError(
+                f"joint_cap must have shape {expected}, got "
+                f"{cap_joint.shape}."
+            )
+        if np.any(cap_joint < 0.0) or np.any(cap_joint > 1.0 + 1e-12):
+            raise ValueError("joint_cap entries must lie in [0,1].")
+        cap_joint = np.clip(cap_joint, 0.0, 1.0)
 
     ns = 4 * M
     phases = state_phases(M)
@@ -872,6 +1104,27 @@ def solve_stage5a_sdp(
         beta <= epsilon_5,
     ]
 
+    # Optional PNA-derived occupancy caps.  q contains only the good
+    # rectangular component, so each good marginal is no larger than the
+    # corresponding full accepted marginal; the same upper bounds remain
+    # valid after discarding the bad component.
+    if cap_joint is not None:
+        joint_vec = np.asarray(
+            [cap_joint[nA, nB] for nA, nB in support],
+            dtype=float,
+        )
+        cons.append(q <= joint_vec)
+
+    if cap_a is not None:
+        for nA in range(nA_plus + 1):
+            idx = np.where(support[:, 0] == nA)[0]
+            cons.append(cp.sum(q[idx]) <= cap_a[nA])
+
+    if cap_b is not None:
+        for nB in range(nB_plus + 1):
+            idx = np.where(support[:, 1] == nB)[0]
+            cons.append(cp.sum(q[idx]) <= cap_b[nB])
+
     # Every unordered signal pair gets one overlap-conservation SOC.
     pairs = [
         (s, t)
@@ -933,6 +1186,11 @@ def solve_stage5a_sdp(
         "n_pairs": int(len(pairs)),
         "p_mon": None if p_mon is None else float(p_mon),
         "objective_scalar": None,
+        "uses_marginal_cap_a": cap_a is not None,
+        "uses_marginal_cap_b": cap_b is not None,
+        "uses_joint_cap": cap_joint is not None,
+        "q_marginal_a": None,
+        "q_marginal_b": None,
     }
 
     if prob.status not in ("optimal", "optimal_inaccurate"):
@@ -973,11 +1231,22 @@ def solve_stage5a_sdp(
     r_original = None if p_mon is None else float(p_mon * r_acc)
 
     q_val = np.asarray(q.value).ravel()
+    q_marginal_a = np.asarray([
+        np.sum(q_val[support[:, 0] == nA])
+        for nA in range(nA_plus + 1)
+    ])
+    q_marginal_b = np.asarray([
+        np.sum(q_val[support[:, 1] == nB])
+        for nB in range(nB_plus + 1)
+    ])
+
     diagnostics = {
         **base_diag,
         "beta": float(beta.value),
         "good_mass": float(np.sum(q_val)),
         "objective_scalar": float(prob.value),
+        "q_marginal_a": q_marginal_a,
+        "q_marginal_b": q_marginal_b,
     }
 
     return Stage5AResult(
@@ -1002,6 +1271,9 @@ def solve_stage5a_synthetic(
     nB_plus: int,
     epsilon_5: float,
     p_mon: float | None = None,
+    marginal_cap_a: Sequence[float] | None = None,
+    marginal_cap_b: Sequence[float] | None = None,
+    joint_cap: np.ndarray | None = None,
     solver=None,
     solver_opts=None,
 ) -> Stage5AResult:
@@ -1024,6 +1296,9 @@ def solve_stage5a_synthetic(
         epsilon_5=epsilon_5,
         prob_of=prob_of,
         p_mon=p_mon,
+        marginal_cap_a=marginal_cap_a,
+        marginal_cap_b=marginal_cap_b,
+        joint_cap=joint_cap,
         solver=solver,
         solver_opts=solver_opts,
     )
@@ -1052,8 +1327,9 @@ def solve_stage5a_ideal_benchmark(
         epsilon_5
           = min(1, [delta_A + delta_B] / P_mon,both)
 
-    from the closed-form ideal deltas, then solves the tail-relaxed Gram SDP
-    using synthetic accepted-ensemble central-node statistics.
+    from the closed-form ideal deltas, derives rigorous marginal and joint
+    accepted-Fock occupancy caps, and then solves the strengthened finite Gram
+    SDP using synthetic accepted-ensemble central-node statistics.
 
     This is NOT yet the realistic Stage-5A detector calculation.
     """
@@ -1067,6 +1343,16 @@ def solve_stage5a_ideal_benchmark(
         p_mon_both=p_mon_both,
     )
 
+    cap_a, cap_b, cap_joint = ideal_two_arm_occupancy_caps(
+        nA_plus=nA_plus,
+        nB_plus=nB_plus,
+        tau_s_a=tau_s_a,
+        tau_s_b=tau_s_b,
+        c_max_a=c_max_a,
+        c_max_b=c_max_b,
+        p_mon_both=p_mon_both,
+    )
+
     result = solve_stage5a_synthetic(
         M=M,
         n_bar=n_bar,
@@ -1075,6 +1361,9 @@ def solve_stage5a_ideal_benchmark(
         nB_plus=nB_plus,
         epsilon_5=interface.epsilon_5,
         p_mon=p_mon_both,
+        marginal_cap_a=cap_a,
+        marginal_cap_b=cap_b,
+        joint_cap=cap_joint,
         solver=solver,
         solver_opts=solver_opts,
     )
@@ -1140,6 +1429,8 @@ def _ideal_scan_one(task):
         "beta": result.diagnostics.get("beta"),
         "good_mass": result.diagnostics.get("good_mass"),
         "n_good_states": int(result.diagnostics["n_good_states"]),
+        "q_marginal_a": result.diagnostics.get("q_marginal_a"),
+        "q_marginal_b": result.diagnostics.get("q_marginal_b"),
     }
 
 
@@ -1169,7 +1460,8 @@ def run_ideal_benchmark_scan(
         epsilon_5
           = min(1, [delta_A(N_plus)+delta_B(N_plus)] / P_mon,both),
 
-    and that epsilon_5 is then fed to the finite Gram SDP.
+    and that epsilon_5, together with the ideal monitor-derived marginal and
+    joint occupancy caps, is then fed to the finite Gram SDP.
 
     IMPORTANT:
       This remains an ideal architecture benchmark because both the hard
@@ -1242,11 +1534,12 @@ def plot_ideal_benchmark_scan(results, output_dir=None):
     """
     Save summary plots for the ideal Stage-5A distance/N_plus scan.
 
-    Four figures are produced:
+    Five figures are produced:
       1. e_ph versus distance, one curve per N_plus;
       2. accepted-round key rate versus distance, one curve per N_plus;
       3. epsilon_5 versus N_plus;
-      4. heat map of e_ph over (distance,N_plus).
+      4. heat map of e_ph over (distance,N_plus);
+      5. ideal monitor-derived one-arm occupancy caps versus n.
 
     By default figures are written to a stage5a-plots directory next to this
     script.
@@ -1377,7 +1670,32 @@ def plot_ideal_benchmark_scan(results, output_dir=None):
     fig.savefig(heat_path, dpi=220)
     plt.close(fig)
 
-    return eph_path, rate_path, eps_path, heat_path
+    # ------------------------------------------------------------------
+    # One-arm accepted-occupancy caps from the ideal monitor.
+    ref = results[0]
+    max_n = max(n_values)
+    occ_caps, _ = ideal_occupancy_caps(
+        max_n,
+        ref["tau_s"],
+        ref["c_max"],
+        ref["P_mon"],
+    )
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    n_axis = np.arange(max_n + 1)
+    positive = np.maximum(occ_caps, np.finfo(float).tiny)
+    ax.semilogy(n_axis, positive, marker="o")
+    ax.set_xlabel(r"Surviving photon number $n$")
+    ax.set_ylabel(r"Upper bound on $\Pr(N=n\mid A_{\rm mon})$")
+    ax.set_title("Stage 5A ideal benchmark: one-arm occupancy caps")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+
+    occ_path = output_dir / "stage5a-occupancy-caps.png"
+    fig.savefig(occ_path, dpi=220)
+    plt.close(fig)
+
+    return eph_path, rate_path, eps_path, heat_path, occ_path
 
 
 # ---------------------------------------------------------------------------
@@ -1413,8 +1731,9 @@ def main() -> None:
         f"workers = {MAX_WORKERS}"
     )
     print(
-        "Scanning distance and N_plus in parallel.  This is an ideal "
-        "architecture benchmark, not yet a realistic PNA detector model."
+        "Scanning distance and N_plus in parallel with tail plus "
+        "monitor-derived marginal/joint occupancy constraints.  This is an "
+        "ideal architecture benchmark, not yet a realistic PNA detector model."
     )
 
     results = run_ideal_benchmark_scan(
