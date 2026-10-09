@@ -125,10 +125,14 @@ is explicitly executed.
 
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 import cvxpy as cp
+import matplotlib.pyplot as plt
 import numpy as np
 from scipy.stats import binom
 
@@ -150,6 +154,13 @@ SLACK_FLOOR = 1e-12
 
 Z_P, Z_M, Z_F = 0, 1, 2
 Z_ALL = (Z_P, Z_M, Z_F)
+
+# Default parallel ideal-benchmark scan.  These values are deliberately
+# modest because each worker constructs and solves an independent SDP, while
+# MOSEK/BLAS may also use internal threads.
+DISTANCES_KM = (0.0, 2.0, 5.0, 10.0, 20.0, 40.0)
+N_PLUS_VALUES = (2, 3, 4, 5, 6, 8)
+MAX_WORKERS = min(4, os.cpu_count() or 1)
 
 # Four bit-pair phase offsets inside each basis.
 ENC_PHASES = (
@@ -1072,31 +1083,32 @@ def solve_stage5a_ideal_benchmark(
 
 
 # ---------------------------------------------------------------------------
-# Explicit execution entry point
+# Parallel ideal-benchmark scan and plots
 
 
-def main() -> None:
+def _ideal_scan_one(task):
     """
-    Example configuration.
+    Solve one independent ideal Stage-5A benchmark point.
 
-    The example is intentionally kept behind the __main__ guard.  Importing
-    this module performs no scan and no SDP solve.
+    ThreadPoolExecutor is used only at the outer scan level.  Each worker
+    constructs its own CVXPY problem and has no shared optimization state.
     """
-    M = M_DEFAULT
-    n_bar = 0.01
-    distance_km = 0.0
+    (
+        M,
+        n_bar,
+        distance_km,
+        tau_s,
+        c_max,
+        n_plus,
+        p_mon_both,
+        solver,
+        solver_opts,
+    ) = task
 
-    # Ideal architecture benchmark only.
-    tau_s = 1e-8
-    c_max = 1_000_000
-    n_plus = 5
-
-    # Placeholder observed probability that BOTH local monitors accept.
-    # Replace by an experimentally justified value before interpreting a
-    # per-original-round rate.
-    p_mon_both = 0.99
-
-    interface = ideal_two_arm_interface(
+    result, interface = solve_stage5a_ideal_benchmark(
+        M=M,
+        n_bar=n_bar,
+        distance_km=distance_km,
         tau_s_a=tau_s,
         tau_s_b=tau_s,
         c_max_a=c_max,
@@ -1104,25 +1116,331 @@ def main() -> None:
         nA_plus=n_plus,
         nB_plus=n_plus,
         p_mon_both=p_mon_both,
+        solver=solver,
+        solver_opts=solver_opts,
     )
 
-    print("Stage 5A ideal architecture benchmark")
-    print(f"M             = {M}")
-    print(f"tau_s         = {tau_s:g}")
-    print(f"c_max         = {c_max}")
-    print(f"N_plus        = {n_plus}")
-    print(f"P_mon,both    = {p_mon_both:g}")
-    print(f"delta_A       = {interface.delta_a:.6e}")
-    print(f"delta_B       = {interface.delta_b:.6e}")
-    print(f"epsilon_5     = {interface.epsilon_5:.6e}")
-    print()
+    return {
+        "L_km": float(distance_km),
+        "N_plus": int(n_plus),
+        "tau_s": float(tau_s),
+        "c_max": int(c_max),
+        "P_mon": float(p_mon_both),
+        "delta_A": float(interface.delta_a),
+        "delta_B": float(interface.delta_b),
+        "epsilon_5": float(interface.epsilon_5),
+        "e_ph": float(result.e_ph_upper),
+        "e_bit": float(result.e_bit),
+        "Ppass_mon": float(result.p_pass_mon),
+        "R_acc": float(result.r_acc),
+        "R_original": (
+            None if result.r_original is None else float(result.r_original)
+        ),
+        "status": result.status,
+        "beta": result.diagnostics.get("beta"),
+        "good_mass": result.diagnostics.get("good_mass"),
+        "n_good_states": int(result.diagnostics["n_good_states"]),
+    }
+
+
+def run_ideal_benchmark_scan(
+    *,
+    M: int,
+    n_bar: float,
+    tau_s: float,
+    c_max: int,
+    p_mon_both: float,
+    distances=DISTANCES_KM,
+    n_plus_values=N_PLUS_VALUES,
+    max_workers=MAX_WORKERS,
+    solver=None,
+    solver_opts=None,
+):
+    """
+    Run the ideal hard-threshold Stage-5A benchmark in parallel.
+
+    The scan varies:
+      * central-link distance, through the synthetic accepted-ensemble
+        statistics;
+      * the certified surviving-signal cutoff N_plus.
+
+    For each N_plus the ideal monitor model supplies
+
+        epsilon_5
+          = min(1, [delta_A(N_plus)+delta_B(N_plus)] / P_mon,both),
+
+    and that epsilon_5 is then fed to the finite Gram SDP.
+
+    IMPORTANT:
+      This remains an ideal architecture benchmark because both the hard
+      threshold a_c = 1[c<=c_max] and P_mon,both are supplied externally.
+      It is not yet a realistic detector-security calculation.
+    """
+    if max_workers < 1:
+        raise ValueError("max_workers must be at least 1.")
+    _check_tau(tau_s)
+    _check_nonnegative_int("c_max", c_max)
+    _check_probability("p_mon_both", p_mon_both, positive=True)
+
+    tasks = []
+    for n_plus in n_plus_values:
+        _check_nonnegative_int("n_plus", n_plus)
+        for distance_km in distances:
+            if distance_km < 0.0:
+                raise ValueError("Distances must be nonnegative.")
+            tasks.append(
+                (
+                    M,
+                    n_bar,
+                    float(distance_km),
+                    tau_s,
+                    c_max,
+                    int(n_plus),
+                    p_mon_both,
+                    solver,
+                    solver_opts,
+                )
+            )
+
+    results = []
+    with ThreadPoolExecutor(max_workers=max_workers) as pool:
+        futures = [pool.submit(_ideal_scan_one, task) for task in tasks]
+        for fut in as_completed(futures):
+            results.append(fut.result())
+
+    results.sort(key=lambda r: (r["N_plus"], r["L_km"]))
+    return results
+
+
+def print_ideal_benchmark_scan(results) -> None:
+    """Pretty-print a completed ideal Stage-5A scan."""
     print(
-        "The full Stage-5A SDP is implemented in solve_stage5a_sdp(). "
-        "This example does not call the solver automatically."
+        f"{'N+':>4} {'L(km)':>7} {'eps5':>11} {'e_ph':>8} "
+        f"{'e_bit':>8} {'Ppass|mon':>11} {'R_acc':>11} "
+        f"{'R_orig':>11} {'beta':>11}  status"
+    )
+
+    for r in results:
+        r_orig = (
+            "-"
+            if r["R_original"] is None
+            else f"{r['R_original']:.3e}"
+        )
+        beta = "-" if r["beta"] is None else f"{r['beta']:.3e}"
+
+        print(
+            f"{r['N_plus']:4d} {r['L_km']:7.1f} "
+            f"{r['epsilon_5']:11.3e} {r['e_ph']:8.4f} "
+            f"{r['e_bit']:8.4f} {r['Ppass_mon']:11.3e} "
+            f"{r['R_acc']:11.3e} {r_orig:>11} {beta:>11}  "
+            f"{r['status']}",
+            flush=True,
+        )
+
+
+def plot_ideal_benchmark_scan(results, output_dir=None):
+    """
+    Save summary plots for the ideal Stage-5A distance/N_plus scan.
+
+    Four figures are produced:
+      1. e_ph versus distance, one curve per N_plus;
+      2. accepted-round key rate versus distance, one curve per N_plus;
+      3. epsilon_5 versus N_plus;
+      4. heat map of e_ph over (distance,N_plus).
+
+    By default figures are written to a stage5a-plots directory next to this
+    script.
+    """
+    if not results:
+        raise ValueError("Cannot plot an empty scan.")
+
+    if output_dir is None:
+        output_dir = Path(__file__).resolve().parent / "stage5a-plots"
+    else:
+        output_dir = Path(output_dir)
+    output_dir.mkdir(parents=True, exist_ok=True)
+
+    n_values = sorted({r["N_plus"] for r in results})
+    distances = sorted({r["L_km"] for r in results})
+
+    # ------------------------------------------------------------------
+    # Phase error versus distance
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    for n_plus in n_values:
+        rows = sorted(
+            (r for r in results if r["N_plus"] == n_plus),
+            key=lambda r: r["L_km"],
+        )
+        ax.plot(
+            [r["L_km"] for r in rows],
+            [r["e_ph"] for r in rows],
+            marker="o",
+            label=fr"$N_+={n_plus}$",
+        )
+
+    ax.axhline(
+        0.292,
+        linestyle="--",
+        linewidth=1.0,
+        label=r"rough positive-key threshold $e_{\rm ph}\simeq0.292$",
+    )
+    ax.set_xlabel("Distance (km)")
+    ax.set_ylabel(r"$e_{\rm ph}$")
+    ax.set_title("Stage 5A ideal benchmark: phase-error bound")
+    ax.grid(True, alpha=0.25)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+
+    eph_path = output_dir / "stage5a-eph-vs-distance.png"
+    fig.savefig(eph_path, dpi=220)
+    plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Accepted-round key rate versus distance
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    for n_plus in n_values:
+        rows = sorted(
+            (r for r in results if r["N_plus"] == n_plus),
+            key=lambda r: r["L_km"],
+        )
+        ax.plot(
+            [r["L_km"] for r in rows],
+            [r["R_acc"] for r in rows],
+            marker="o",
+            label=fr"$N_+={n_plus}$",
+        )
+
+    ax.set_xlabel("Distance (km)")
+    ax.set_ylabel(r"$R_{\rm acc}$")
+    ax.set_title("Stage 5A ideal benchmark: accepted-round key rate")
+    ax.grid(True, alpha=0.25)
+    ax.legend(fontsize=8)
+    fig.tight_layout()
+
+    rate_path = output_dir / "stage5a-rate-vs-distance.png"
+    fig.savefig(rate_path, dpi=220)
+    plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Physical-interface leakage versus cutoff
+    #
+    # With fixed tau_s, c_max and P_mon,both, epsilon_5 is independent of
+    # central-link distance.  Take one row per N_plus.
+    eps_rows = []
+    for n_plus in n_values:
+        row = next(r for r in results if r["N_plus"] == n_plus)
+        eps_rows.append(row)
+
+    fig, ax = plt.subplots(figsize=(7.2, 4.8))
+    ax.semilogy(
+        [r["N_plus"] for r in eps_rows],
+        [max(r["epsilon_5"], np.finfo(float).tiny) for r in eps_rows],
+        marker="o",
+    )
+    ax.set_xlabel(r"Surviving-signal cutoff $N_+$")
+    ax.set_ylabel(r"$\epsilon_5$")
+    ax.set_title("Stage 5A ideal benchmark: certified bad-tail bound")
+    ax.grid(True, alpha=0.25)
+    fig.tight_layout()
+
+    eps_path = output_dir / "stage5a-epsilon5-vs-nplus.png"
+    fig.savefig(eps_path, dpi=220)
+    plt.close(fig)
+
+    # ------------------------------------------------------------------
+    # Phase-error heat map
+    eph_grid = np.full((len(n_values), len(distances)), np.nan)
+    for r in results:
+        i = n_values.index(r["N_plus"])
+        j = distances.index(r["L_km"])
+        eph_grid[i, j] = r["e_ph"]
+
+    fig, ax = plt.subplots(figsize=(7.6, 4.8))
+    im = ax.imshow(
+        eph_grid,
+        origin="lower",
+        aspect="auto",
+        interpolation="nearest",
+    )
+    ax.set_xticks(np.arange(len(distances)))
+    ax.set_xticklabels([f"{d:g}" for d in distances])
+    ax.set_yticks(np.arange(len(n_values)))
+    ax.set_yticklabels([str(n) for n in n_values])
+    ax.set_xlabel("Distance (km)")
+    ax.set_ylabel(r"$N_+$")
+    ax.set_title("Stage 5A ideal benchmark: phase-error scan")
+    cbar = fig.colorbar(im, ax=ax)
+    cbar.set_label(r"$e_{\rm ph}$")
+    fig.tight_layout()
+
+    heat_path = output_dir / "stage5a-eph-heatmap.png"
+    fig.savefig(heat_path, dpi=220)
+    plt.close(fig)
+
+    return eph_path, rate_path, eps_path, heat_path
+
+
+# ---------------------------------------------------------------------------
+# Explicit execution entry point
+
+
+def main() -> None:
+    """
+    Run the default ideal Stage-5A benchmark scan.
+
+    This DOES solve the SDPs when the script is executed directly.  Importing
+    the module still performs no scan and no solve.
+
+    The monitor numbers below are deliberately labelled as benchmark inputs:
+    the hard threshold and P_mon,both are not yet a realistic detector model.
+    """
+    M = M_DEFAULT
+    n_bar = 0.01
+
+    # Ideal architecture benchmark only.
+    tau_s = 1e-8
+    c_max = 1_000_000
+
+    # Placeholder observed probability that BOTH local monitors accept.
+    # Replace this by an experimentally justified value before interpreting
+    # the per-original-round rate.
+    p_mon_both = 0.99
+
+    print("Stage 5A ideal hard-threshold benchmark")
+    print(
+        f"M = {M}, n_bar = {n_bar}, tau_s = {tau_s:g}, "
+        f"c_max = {c_max}, P_mon,both = {p_mon_both:g}, "
+        f"workers = {MAX_WORKERS}"
     )
     print(
-        "To test the ideal benchmark explicitly, call "
-        "solve_stage5a_ideal_benchmark(...) from a Python session."
+        "Scanning distance and N_plus in parallel.  This is an ideal "
+        "architecture benchmark, not yet a realistic PNA detector model."
+    )
+
+    results = run_ideal_benchmark_scan(
+        M=M,
+        n_bar=n_bar,
+        tau_s=tau_s,
+        c_max=c_max,
+        p_mon_both=p_mon_both,
+        distances=DISTANCES_KM,
+        n_plus_values=N_PLUS_VALUES,
+        max_workers=MAX_WORKERS,
+    )
+
+    print()
+    print_ideal_benchmark_scan(results)
+
+    plot_paths = plot_ideal_benchmark_scan(results)
+    print("\nSaved Stage-5A plots:")
+    for path in plot_paths:
+        print(f"  {path}")
+
+    print(
+        "\nR_acc is per monitor-accepted round.  R_original uses the "
+        "placeholder P_mon,both above.  Replace the ideal hard-threshold "
+        "response and P_mon,both by a calibrated monitor model before "
+        "interpreting the scan as a physical security result."
     )
 
 
