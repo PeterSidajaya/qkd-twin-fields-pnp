@@ -3016,6 +3016,215 @@ tail sufficiently small.  For a realistic response \(a_c\), the general
 definition \(\delta(N_+)=\sup_mH_m(N_+)\) remains, but the closed-form
 \(m_*\) need not.
 
+\subsubsection{PNA-derived occupancy constraints inside the good region}
+\label{sec:stage5a-occupancy}
+
+The tail statement in Eq.~\eqref{eq:stage5a-twoarm-tail} controls only the
+probability outside the finite rectangle \(\mathcal N_+\).  By itself it says
+nothing about how Eve may distribute probability \emph{inside} that rectangle.
+For example, a tail-only relaxation with \(N_+=2\) would still allow the
+unphysical extreme choice \(q_2^{\rm acc}=1\).  The joint PNA--beam-splitter
+instrument contains substantially more information than this.
+
+For one arm, define the exact fixed-\(m\) probability of monitor acceptance
+together with exactly \(n\) surviving signal photons,
+\begin{equation}
+    T_{n|m}
+    :=
+    \Pr(A_{\rm mon},N=n\mid M=m)
+    =
+    \binom mn
+    \tau_{\rm s}^{n}
+    (1-\tau_{\rm s})^{m-n}
+    a_{m-n}.
+    \label{eq:stage5a-Tnm}
+\end{equation}
+For an arbitrary incoming distribution \(p_m\),
+\begin{equation}
+    \Pr(A_{\rm mon},N=n)
+    =
+    \sum_m p_mT_{n|m}.
+    \label{eq:stage5a-exact-n-numerator}
+\end{equation}
+Define the source-independent numerator bound
+\begin{equation}
+    \boxed{
+    B_n
+    :=
+    \sup_{m\ge n}T_{n|m}.
+    }
+    \label{eq:stage5a-Bn-general}
+\end{equation}
+Because \(\sum_mp_m=1\),
+\begin{equation}
+    \Pr(A_{\rm mon},N=n)
+    \le
+    B_n,
+\end{equation}
+and therefore, after conditioning on monitor acceptance,
+\begin{equation}
+    \boxed{
+    \Pr(N=n\mid A_{\rm mon})
+    \le
+    \min\!\left\{
+      1,\,
+      \frac{B_n}{P_{\rm mon}}
+    \right\}.
+    }
+    \label{eq:stage5a-onearm-occupancy}
+\end{equation}
+Unlike the tail bound, Eq.~\eqref{eq:stage5a-onearm-occupancy} constrains the
+\emph{shape} of the accepted photon-number distribution inside the good
+region.
+
+For the ideal hard upper-threshold response
+\[
+    a_c=\mathbf 1[c\le c_{\max}],
+\]
+Eq.~\eqref{eq:stage5a-Tnm} becomes
+\begin{equation}
+    T_{n|m}^{\rm ideal}
+    =
+    \binom mn
+    \tau_{\rm s}^{n}
+    (1-\tau_{\rm s})^{m-n}
+    \mathbf 1[m-n\le c_{\max}].
+    \label{eq:stage5a-Tnm-ideal}
+\end{equation}
+Thus only
+\begin{equation}
+    n\le m\le n+c_{\max}
+    \label{eq:stage5a-m-range-fixed-n}
+\end{equation}
+can contribute.  Within this interval, consecutive terms obey
+\begin{equation}
+    \frac{
+      T_{n|m+1}^{\rm ideal}
+    }{
+      T_{n|m}^{\rm ideal}
+    }
+    =
+    \frac{m+1}{m+1-n}
+    (1-\tau_{\rm s}).
+    \label{eq:stage5a-T-ratio}
+\end{equation}
+The ratio is at least one exactly when
+\[
+    m+1\le \frac{n}{\tau_{\rm s}}.
+\]
+Hence the sequence first increases and then decreases, with the unconstrained
+maximum at the integer(s) nearest the crossing \(m\simeq n/\tau_{\rm s}\),
+clipped to the allowed interval
+\([n,n+c_{\max}]\).  Consequently
+\begin{equation}
+    \boxed{
+    B_n^{\rm ideal}
+    =
+    \max_{n\le m\le n+c_{\max}}
+    \binom mn
+    \tau_{\rm s}^{n}
+    (1-\tau_{\rm s})^{m-n}.
+    }
+    \label{eq:stage5a-Bn-ideal}
+\end{equation}
+This is a one-dimensional maximization with a known unimodal structure; the
+implementation evaluates the crossing and neighboring integer candidates
+together with the interval endpoints.
+
+For two arms, let
+\[
+    B_A(n_A)
+    :=
+    \sup_{m_A}
+    T^A_{n_A|m_A},
+    \qquad
+    B_B(n_B)
+    :=
+    \sup_{m_B}
+    T^B_{n_B|m_B}.
+\]
+No product assumption on the incoming source is made:
+\(p_{m_A,m_B}\) may be arbitrarily correlated.  Because the two trusted local
+instruments factor conditioned on the incoming pair \((m_A,m_B)\), while
+\(0\le A^X_{m_X}\le1\), every physical accepted distribution satisfies the
+marginal bounds
+\begin{align}
+    \Pr(N_A=n_A\mid A_{\rm mon})
+    &\le
+    \min\!\left\{
+      1,\,
+      \frac{B_A(n_A)}{P_{\rm mon}}
+    \right\},
+    \label{eq:stage5a-occ-marg-A}
+    \\
+    \Pr(N_B=n_B\mid A_{\rm mon})
+    &\le
+    \min\!\left\{
+      1,\,
+      \frac{B_B(n_B)}{P_{\rm mon}}
+    \right\},
+    \label{eq:stage5a-occ-marg-B}
+\end{align}
+where here \(A_{\rm mon}\) denotes acceptance of both local monitors.
+
+The joint numerator obeys
+\begin{align}
+    &\Pr(
+      A_{\rm mon},
+      N_A=n_A,
+      N_B=n_B
+    )
+    \nonumber\\
+    &\quad=
+    \sum_{m_A,m_B}
+      p_{m_A,m_B}
+      T^A_{n_A|m_A}
+      T^B_{n_B|m_B}
+    \nonumber\\
+    &\quad\le
+    B_A(n_A)B_B(n_B),
+\end{align}
+so the accepted joint occupancy also satisfies
+\begin{equation}
+    \boxed{
+    \Pr(
+      N_A=n_A,N_B=n_B
+      \mid A_{\rm mon}
+    )
+    \le
+    \min\!\left\{
+      1,\,
+      \frac{
+        B_A(n_A)B_B(n_B)
+      }{
+        P_{\rm mon}
+      }
+    \right\}.
+    }
+    \label{eq:stage5a-occ-joint}
+\end{equation}
+Equations~\eqref{eq:stage5a-occ-marg-A}--\eqref{eq:stage5a-occ-joint}
+remain valid for arbitrary Alice--Bob photon-number correlations.  They are
+outer constraints: the separate suprema may be achieved by different incoming
+Fock numbers, so imposing these bounds does not force the relaxed accepted
+distribution to arise from one common physical \(p_{m_A,m_B}\).
+
+The hierarchy of information is therefore
+\begin{equation}
+    \boxed{
+    \text{tail only}
+    \ \subset\
+    \text{tail + occupancy caps}
+    \ \subset\
+    \text{full exact PNA--BS image constraints},
+    }
+    \label{eq:stage5a-information-hierarchy}
+\end{equation}
+where the inclusion is meant in the sense of increasing constraint strength.
+The present Stage-5A numerical relaxation uses the middle level.  It retains
+a small finite accepted-Fock description while preserving much more of the
+physical monitor information than the tail bound alone.
+
 \subsubsection{From the physical tail bound to a finite accepted-state model}
 
 Suppose the two-arm calculation certifies Eq.~\eqref{eq:stage5a-twoarm-tail}.
@@ -3096,14 +3305,16 @@ Therefore every physical accepted state satisfies
 \end{equation}
 
 This is the step at which the incoming distribution \(p_{m_A,m_B}\) ceases to
-appear in the relaxed security optimization.  We retain only a consequence of
-the exact PNA--BS instrument that is sufficient for the Gram proof: the
-accepted-state good support and the certified bad mass.  Hence
+appear in the relaxed security optimization.  The tail-only version retains
+the accepted-state good support and the certified bad mass, but this by itself
+is generally too loose.  The strengthened Stage-5A relaxation additionally
+imposes the PNA-derived marginal and joint occupancy caps from
+Section~\ref{sec:stage5a-occupancy}.  Hence
 \begin{equation}
     \boxed{
     \mathcal F_{\rm physical\ PNA\text{-}BS}
     \subseteq
-    \mathcal F_{\rm Stage\,5A\ tail\ relaxation}.
+    \mathcal F_{\rm Stage\,5A\ occupancy\ relaxation}.
     }
     \label{eq:stage5a-feasible-inclusion}
 \end{equation}
@@ -3238,6 +3449,27 @@ The complete asymptotic Stage-5A outer-relaxation SDP is therefore
     \forall (n_A,n_B)\in\mathcal N_+,
     \\
     &
+    \sum_{n_B=0}^{N_{B,+}}q_{n_A,n_B}
+    \le
+    \frac{B_A(n_A)}{P_{\rm mon}}
+    \quad
+    \forall n_A\le N_{A,+},
+    \\
+    &
+    \sum_{n_A=0}^{N_{A,+}}q_{n_A,n_B}
+    \le
+    \frac{B_B(n_B)}{P_{\rm mon}}
+    \quad
+    \forall n_B\le N_{B,+},
+    \\
+    &
+    q_{n_A,n_B}
+    \le
+    \frac{B_A(n_A)B_B(n_B)}{P_{\rm mon}}
+    \quad
+    \forall (n_A,n_B)\in\mathcal N_+,
+    \\
+    &
     0\le\beta\le\epsilon_5,
     \\
     &
@@ -3271,13 +3503,15 @@ The complete asymptotic Stage-5A outer-relaxation SDP is therefore
 The complex-modulus inequalities are second-order-cone constraints, so the
 problem remains an SDP/SOCP-representable convex optimization.
 
-The only Stage-5A monitor information entering
-Eq.~\eqref{eq:stage5a-final-sdp} is the certified number
-\(\epsilon_5\) and the chosen finite cutoffs \(N_{A,+},N_{B,+}\), together
-with the experimentally observed accepted-ensemble probabilities.  The
-unknown incoming \(p_{m_A,m_B}\) no longer appears.  This is an intentional
-outer relaxation: it may be looser than enforcing the full exact PNA--BS map,
-but it is finite and source independent.
+The Stage-5A monitor information entering
+Eq.~\eqref{eq:stage5a-final-sdp} is now the certified tail number
+\(\epsilon_5\), the finite cutoffs \(N_{A,+},N_{B,+}\), and the
+monitor-derived occupancy coefficients \(B_A(n_A),B_B(n_B)\), together with
+the experimentally observed accepted-ensemble probabilities.  The unknown
+incoming \(p_{m_A,m_B}\) no longer appears.  This is still an intentional
+outer relaxation: it does not enforce the full common image of one physical
+incoming distribution under the PNA--BS map, but it is finite, source
+independent, and substantially tighter than the tail-only relaxation.
 
 After solving for the worst-case \(e_{\rm ph}^\star\), the asymptotic key rate
 per monitor-accepted round is
@@ -3307,9 +3541,13 @@ be multiplied a second time.
 \subsubsection{Current Stage-5A status}
 
 The quantum instrument, exact accepted-state overlap, source-independent tail
-reduction, ideal hard-threshold benchmark, and the resulting finite Gram SDP
-are now explicit.  The ideal formula
-Eq.~\eqref{eq:stage5a-ideal-delta} should be regarded as an architecture
+reduction, ideal hard-threshold benchmark, PNA-derived occupancy constraints,
+and the resulting strengthened finite Gram SDP are now explicit.  The
+tail-only finite-Fock relaxation is rigorous but can be much too loose because
+it permits arbitrary redistribution of probability inside the good cutoff.
+The occupancy constraints restore part of the exact PNA--BS structure without
+reintroducing the large incoming distribution \(p_m\).  The ideal formula
+Eq.~\eqref{eq:stage5a-ideal-delta} should still be regarded as an architecture
 sanity check only.
 
 The remaining Stage-5A physics task is to replace the ideal step response by a
