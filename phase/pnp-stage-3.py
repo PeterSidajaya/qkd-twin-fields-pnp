@@ -296,6 +296,68 @@ def exact_kernel_coeff(dphi, t2):
     return np.log1p(t2 * (np.exp(1j * dphi) - 1.0)) / t2
 
 
+
+def finite_tau_log_remainder_coeff(t2):
+    """
+    Uniform coefficient for replacing the exact finite-tau kernel by K_0.
+
+    Let
+        a = 1 - exp(i dphi),
+        b_tau = Log(1 - tau a) / tau = -a + d_tau.
+
+    For 0 < tau < 1/2 and |a| <= 2,
+
+        |d_tau| <= c_tau,
+        c_tau := 2 tau / (1 - 2 tau).
+
+    Hence, with S = u_A + u_B,
+
+        |K_tau(u) - K_0(u)|
+            <= c_tau S exp(c_tau S).
+
+    This bound is only an analytic diagnostic.  The certified Stage-3 solver
+    below keeps K_tau exactly and does not invoke the K_0 replacement.
+    """
+    if not (0.0 < t2 < 0.5):
+        raise ValueError(
+            "finite-tau remainder bound requires 0 < t2 < 1/2."
+        )
+    return 2.0 * t2 / (1.0 - 2.0 * t2)
+
+
+def limiting_kernel_pointwise_error_bound(uA, uB, t2):
+    """
+    Certified pointwise upper bound on |K_tau - K_0|.
+
+    Valid for uA,uB >= 0 and 0 < t2 < 1/2.
+    """
+    if uA < 0.0 or uB < 0.0:
+        raise ValueError("uA and uB must be nonnegative.")
+    c_tau = finite_tau_log_remainder_coeff(t2)
+    s = float(uA + uB)
+    return c_tau * s * math.exp(c_tau * s)
+
+
+def limiting_kernel_integrated_error_bound(mean_total, u_max, t2):
+    """
+    Certified bound on the K_tau -> K_0 replacement over u_A+u_B <= u_max.
+
+    If
+        integral (u_A+u_B) dnu <= mean_total,
+    then
+        | integral K_tau dnu - integral K_0 dnu |
+            <= c_tau * mean_total * exp(c_tau * u_max).
+
+    The actual Stage-3 SDP does not use this approximation.
+    """
+    if mean_total < 0.0:
+        raise ValueError("mean_total must be nonnegative.")
+    if u_max < 0.0:
+        raise ValueError("u_max must be nonnegative.")
+    c_tau = finite_tau_log_remainder_coeff(t2)
+    return c_tau * mean_total * math.exp(c_tau * u_max)
+
+
 def kernel_linearization_data(phases, pairs, cells, t2):
     """
     Data for the lifted first-order cell enclosure.
