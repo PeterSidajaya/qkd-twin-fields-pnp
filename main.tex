@@ -14,7 +14,7 @@
 
 \title{Working Notes: Plug-and-Play Twin-Field / Phase-Matching QKD}
 \author{}
-\date{Updated 8 October 2026}
+\date{Updated 13 October 2026}
 
 \begin{document}
 
@@ -52,13 +52,17 @@ the monitor statement from a physical photon-number analyzer.
 
 The next step is therefore a physical monitor model rather than a new
 phase-error formalism.  Stage~5A now gives the exact trusted beam-splitter/PNA
-instrument, the accepted-state overlap, and a source-independent reduction
-from a certified surviving-photon tail to a finite Gram SDP.  Its remaining
-physics task is to replace the ideal hard-threshold benchmark by a realistic
-calibrated detector response.  Stage~5B will add optional trusted attenuation
-after that joint monitor.  The extra attenuator is an
+instrument, the accepted-state overlap, and a source-independent reduction to
+a finite Fock-space Gram SDP using both a surviving-photon tail bound and
+PNA-derived occupancy constraints.  Its remaining physics task is to replace
+the ideal hard-threshold benchmark by a realistic calibrated detector
+response.  Stage~5B has now also been formulated as an optional extension in
+which a moderate PNA beam splitter is followed by strong trusted attenuation;
+the large pre-attenuation Fock number is then handled by the certified compact
+continuum relaxation developed in Stages~3--4.  This extra attenuator is an
 implementation/generalisation choice, not something required to create the
-common phase orbit.
+common phase orbit.  For a paper presentation, Stage~5A is the natural main
+result and Stage~5B is a good candidate for an appendix extension.
 
 \section{Protocol and security model}
 
@@ -3563,17 +3567,524 @@ response functions but has not yet been promoted to the final realistic
 detector calculation.
 
 \subsection{Stage 5B: PNA--beam splitter plus additional trusted attenuation}
+\label{sec:stage5b}
 
-Stage~5B will append an optional trusted pure-loss channel of transmissivity
-\(\lambda\) to the Stage-5A surviving signal before phase encoding.  This is
-the more general architecture and may be experimentally convenient because
-the monitor splitting ratio and final QKD brightness can then be tuned
-independently.
+Stage~5B is an optional extension of Stage~5A.  The intended architecture is
+\begin{equation}
+    \rho_{\rm in}
+    \longrightarrow
+    \boxed{\text{trusted PNA beam splitter}}
+    \longrightarrow
+    \boxed{\text{accepted signal }N}
+    \longrightarrow
+    \boxed{\mathcal L_{\lambda}}
+    \longrightarrow
+    \boxed{\text{secret phase encoding}},
+    \label{eq:stage5b-architecture}
+\end{equation}
+where the PNA beam splitter may now be moderate, for example \(50{:}50\), and
+\(\mathcal L_\lambda\) is a subsequent trusted pure-loss channel with
+transmissivity \(\lambda\ll1\).
 
-The additional attenuator is \emph{not} required to create or restore the
-common phase orbit.  Its role is only to provide extra controllable signal
-loss and, analytically, an additional known thinning map.  Setting
-\(\lambda=1\) recovers Stage~5A exactly.
+The motivation is computational rather than conceptual.  With a highly
+reflective Stage-5A beam splitter the surviving signal photon number can be
+small enough to model directly in Fock space.  With a \(50{:}50\) monitor
+splitter, however, the accepted signal entering the extra attenuator can still
+contain \(10^5\)--\(10^6\) photons.  Keeping one SDP variable per Fock number
+would then be unattractive.  The extra attenuation maps that large integer
+variable to a small effective scale, allowing the Stage-3/4 continuum
+machinery to be reused.
+
+For a paper presentation, the current preference is to keep Stage~5A as the
+main-text physical result and treat Stage~5B as an appendix/generalisation.
+Nothing in Stage~5B is required for the common phase orbit.
+
+\subsubsection{Exact overlap after the additional attenuator}
+
+Condition on the trusted monitor-acceptance event \(A_{\rm mon}\), and let
+\[
+    q^{\rm acc}_{n_A,n_B}
+    =
+    \Pr(
+      N_A=n_A,N_B=n_B
+      \mid A_{\rm mon}
+    )
+\]
+be the accepted photon-number distribution \emph{before} the additional
+attenuator.  It may contain arbitrary Alice--Bob correlations.
+
+For one arm, if \(N=n\) photons enter the trusted attenuator, the number
+\(K\) surviving it obeys
+\begin{equation}
+    K\mid N=n
+    \sim
+    \operatorname{Binomial}(n,\lambda).
+    \label{eq:stage5b-thinning}
+\end{equation}
+Hence, for a phase difference \(\theta\),
+\begin{align}
+    \mathbb E[
+      e^{i\theta K}
+      \mid N=n
+    ]
+    &=
+    \sum_{k=0}^{n}
+    \binom nk
+    \lambda^k(1-\lambda)^{n-k}
+    e^{i\theta k}
+    \nonumber\\
+    &=
+    \boxed{
+    \left(
+      1-\lambda+\lambda e^{i\theta}
+    \right)^n.
+    }
+    \label{eq:stage5b-binomial-kernel}
+\end{align}
+For two arms define
+\[
+    \kappa_X^{st}
+    :=
+    1-\lambda_X
+    +
+    \lambda_X e^{i\Delta\phi_X^{st}},
+    \qquad
+    X\in\{A,B\}.
+\]
+Then the exact accepted overlap after the extra attenuation is
+\begin{equation}
+    \boxed{
+    \Lambda_{st}^{(5B)}
+    =
+    \sum_{n_A,n_B}
+    q^{\rm acc}_{n_A,n_B}
+    \left(\kappa_A^{st}\right)^{n_A}
+    \left(\kappa_B^{st}\right)^{n_B}.
+    }
+    \label{eq:stage5b-exact-overlap}
+\end{equation}
+No continuum approximation has been made so far.
+
+\subsubsection{Rescaling the large pre-attenuation Fock number}
+
+Introduce
+\begin{equation}
+    u_X
+    :=
+    \lambda_X n_X,
+    \label{eq:stage5b-u-def}
+\end{equation}
+and
+\begin{equation}
+    b_X^{st}
+    :=
+    \frac{1}{\lambda_X}
+    \Log\!\left(
+      1-\lambda_X
+      +
+      \lambda_Xe^{i\Delta\phi_X^{st}}
+    \right).
+    \label{eq:stage5b-b-def}
+\end{equation}
+On the physical lattice \(u_X\in\lambda_X\mathbb Z_{\ge0}\),
+\begin{equation}
+    \left(\kappa_X^{st}\right)^{n_X}
+    =
+    e^{b_X^{st}u_X}.
+    \label{eq:stage5b-lattice-identity}
+\end{equation}
+Therefore Eq.~\eqref{eq:stage5b-exact-overlap} is exactly the integral
+\begin{equation}
+    \Lambda_{st}^{(5B)}
+    =
+    \int
+    e^{
+      b_A^{st}u_A+b_B^{st}u_B
+    }
+    d\nu_\lambda(u_A,u_B),
+    \label{eq:stage5b-lattice-measure}
+\end{equation}
+where
+\begin{equation}
+    \nu_\lambda
+    =
+    \sum_{n_A,n_B}
+    q^{\rm acc}_{n_A,n_B}
+    \delta_{
+      (\lambda_A n_A,\lambda_B n_B)
+    }.
+    \label{eq:stage5b-pushforward}
+\end{equation}
+Thus the continuum variable has a precise meaning:
+\[
+    \boxed{
+    U_X=\lambda_XN_X
+    =
+    \mathbb E[K_X\mid N_X].
+    }
+\]
+As in Stage~3, \(U_X\) is not the actual post-attenuation photon number; it is
+the conditional mean after the trusted loss for a fixed pre-attenuation Fock
+number.
+
+\subsubsection{PNA tail certification gives a compact continuum domain}
+
+Suppose the physical PNA analysis supplies
+\begin{equation}
+    \boxed{
+    \Pr(
+      N_A>N_{A,+}
+      \ \text{or}\
+      N_B>N_{B,+}
+      \mid A_{\rm mon}
+    )
+    \le
+    \epsilon_5.
+    }
+    \label{eq:stage5b-preloss-tail}
+\end{equation}
+Under the deterministic rescaling \(u_X=\lambda_Xn_X\), this is exactly
+\begin{equation}
+    \Pr(
+      U_A>u_{A,+}
+      \ \text{or}\
+      U_B>u_{B,+}
+      \mid A_{\rm mon}
+    )
+    \le
+    \epsilon_5,
+    \label{eq:stage5b-u-tail}
+\end{equation}
+with
+\begin{equation}
+    \boxed{
+    u_{A,+}
+    =
+    \lambda_A N_{A,+},
+    \qquad
+    u_{B,+}
+    =
+    \lambda_B N_{B,+}.
+    }
+    \label{eq:stage5b-u-caps}
+\end{equation}
+
+Decompose
+\begin{equation}
+    \nu_\lambda
+    =
+    \nu_{\rm good}
+    +
+    \nu_{\rm bad},
+\end{equation}
+where
+\begin{equation}
+    \operatorname{supp}\nu_{\rm good}
+    \subseteq
+    [0,u_{A,+}]
+    \times
+    [0,u_{B,+}],
+    \qquad
+    \beta
+    :=
+    \nu_{\rm bad}(\mathbb R_+^2)
+    \le
+    \epsilon_5.
+    \label{eq:stage5b-good-bad}
+\end{equation}
+Because
+\[
+    \left|
+      \left(\kappa_A^{st}\right)^{n_A}
+      \left(\kappa_B^{st}\right)^{n_B}
+    \right|
+    \le1,
+\]
+the omitted bad component contributes at most
+\begin{equation}
+    |r_{st}^{\rm bad}|
+    \le
+    \beta.
+    \label{eq:stage5b-bad-overlap}
+\end{equation}
+
+This is the main physical bridge from Stage~5B to the abstract Stage-4
+interface: the PNA bounds the actual large pre-attenuation Fock number, and the
+trusted attenuator converts that bound into a small compact effective-energy
+region.
+
+For the ideal hard-threshold PNA of Stage~5A,
+\[
+    a_c=\mathbf 1[c\le c_{\max}],
+\]
+the one-arm result remains
+\begin{equation}
+    \delta(N_+)
+    =
+    \Pr[
+      \operatorname{Bin}
+      (c_{\max}+N_++1,\tau_{\rm s})
+      >
+      N_+
+    ].
+    \label{eq:stage5b-ideal-delta}
+\end{equation}
+For a symmetric two-arm benchmark,
+\begin{equation}
+    \epsilon_5
+    \le
+    \min\!\left\{
+      1,\,
+      \frac{
+        2\delta(N_+)
+      }{
+        P_{\rm mon}
+      }
+    \right\},
+    \qquad
+    u_+=\lambda N_+.
+    \label{eq:stage5b-ideal-interface}
+\end{equation}
+For a \(50{:}50\) PNA splitter, a useful \(N_+\) is naturally of the same
+order as \(c_{\max}\); strong subsequent attenuation can nevertheless make
+\(u_+=\lambda N_+\) of order \(10^{-2}\) or smaller.
+
+\subsubsection{Continuum outer relaxation}
+
+The exact measure \(\nu_\lambda\) is supported on the fine lattice
+\[
+    (\lambda_A\mathbb Z_{\ge0})
+    \times
+    (\lambda_B\mathbb Z_{\ge0}).
+\]
+Stage~5B now drops this lattice restriction and allows an arbitrary positive
+measure on the compact good rectangle.  Therefore
+\begin{equation}
+    \boxed{
+    \mathcal F_{\rm physical\ Stage\,5B}
+    \subseteq
+    \mathcal F_{\rm compact\ continuum}.
+    }
+    \label{eq:stage5b-continuum-inclusion}
+\end{equation}
+This is the continuum relaxation.  It is useful because \(\lambda\ll1\)
+makes the physical \(u\)-lattice extremely fine even when \(N_+\) is of order
+\(10^6\).
+
+Unlike Stage~3, no mean-only energy constraint is used.  The essential source
+information is the compact PNA-derived support up to bad mass \(\epsilon_5\).
+Unlike Stage~5A, we do not need individual Fock occupancies in the baseline
+Stage-5B relaxation because all good pre-attenuation Fock numbers are squeezed
+by the extra loss into a small \(u\)-domain.  PNA-derived occupancy information
+could still be added later as an optional strengthening.
+
+\subsubsection{Certified lifted-cell relaxation}
+
+Partition
+\[
+    [0,u_{A,+}]
+    \times
+    [0,u_{B,+}]
+\]
+into cells \(C_j\).  For the good continuum component define
+\begin{equation}
+    q_j
+    :=
+    \nu_{\rm good}(C_j),
+    \qquad
+    x_{A,j}
+    :=
+    \int_{C_j}u_A\,d\nu_{\rm good},
+    \qquad
+    x_{B,j}
+    :=
+    \int_{C_j}u_B\,d\nu_{\rm good}.
+    \label{eq:stage5b-cell-vars}
+\end{equation}
+If the coordinate bounds of \(C_j\) are
+\[
+    \underline u_{X,j}
+    \le
+    u_X
+    \le
+    \overline u_{X,j},
+\]
+then every physical continuum measure obeys the perspective constraints
+\begin{equation}
+    \underline u_{X,j}q_j
+    \le
+    x_{X,j}
+    \le
+    \overline u_{X,j}q_j.
+    \label{eq:stage5b-perspective}
+\end{equation}
+
+For a representative \(c_j=(c_{A,j},c_{B,j})\), define
+\[
+    K_{st}(u_A,u_B)
+    :=
+    e^{b_A^{st}u_A+b_B^{st}u_B}
+\]
+and
+\[
+    z_{st,j}(u)
+    :=
+    b_A^{st}(u_A-c_{A,j})
+    +
+    b_B^{st}(u_B-c_{B,j}).
+\]
+Using
+\[
+    e^z=1+z+R_2(z),
+\]
+the cell contribution is
+\begin{align}
+    \int_{C_j}K_{st}(u)\,d\nu_{\rm good}
+    &=
+    K_{st}(c_j)
+    \Big[
+      q_j
+      +
+      b_A^{st}
+      (x_{A,j}-c_{A,j}q_j)
+      \nonumber\\
+    &\hspace{29mm}
+      +
+      b_B^{st}
+      (x_{B,j}-c_{B,j}q_j)
+    \Big]
+    +
+    r_{st,j}.
+    \label{eq:stage5b-cell-linearization}
+\end{align}
+Let
+\begin{equation}
+    \rho_{st,j}
+    :=
+    \sup_{u\in C_j}
+    |z_{st,j}(u)|
+\end{equation}
+and
+\begin{equation}
+    \eta_{st,j}
+    :=
+    \min\!\left\{
+      \frac{\rho_{st,j}^2}{2}e^{\rho_{st,j}},
+      2+\rho_{st,j}
+    \right\}.
+    \label{eq:stage5b-eta}
+\end{equation}
+Then
+\begin{equation}
+    |r_{st,j}|
+    \le
+    q_j\eta_{st,j}.
+    \label{eq:stage5b-cell-remainder}
+\end{equation}
+As in Stages~3--4, \(\rho_{st,j}\) can be obtained by checking the vertices
+of the rectangular cell.
+
+Define the lifted good-overlap approximation
+\begin{align}
+    \widetilde\Lambda_{st}^{\rm good}
+    :=
+    \sum_j
+    K_{st}(c_j)
+    \Big[
+      q_j
+      +
+      b_A^{st}(x_{A,j}-c_{A,j}q_j)
+      \nonumber\\
+      +
+      b_B^{st}(x_{B,j}-c_{B,j}q_j)
+    \Big].
+    \label{eq:stage5b-lifted-overlap}
+\end{align}
+The certified Gram constraint is therefore
+\begin{equation}
+    \boxed{
+    \left|
+      \sum_{z\in\mathcal Z}
+      G[(z,s),(z,t)]
+      -
+      \widetilde\Lambda_{st}^{\rm good}
+    \right|
+    \le
+    \sum_jq_j\eta_{st,j}
+    +
+    \beta.
+    }
+    \label{eq:stage5b-certified-soc}
+\end{equation}
+Together with
+\begin{equation}
+    G\succeq0,
+    \qquad
+    q_j\ge0,
+    \qquad
+    \sum_jq_j+\beta=1,
+    \qquad
+    0\le\beta\le\epsilon_5,
+    \label{eq:stage5b-basic-cons}
+\end{equation}
+the perspective constraints
+Eq.~\eqref{eq:stage5b-perspective}, the observed conditional Gram diagonals,
+and the same A7 objective
+Eq.~\eqref{eq:stage5a-eph}, this gives the finite Stage-5B SDP/SOCP
+relaxation.
+
+The feasible-set chain is
+\begin{equation}
+    \boxed{
+    \mathcal F_{\rm physical\ Stage\,5B}
+    \subseteq
+    \mathcal F_{\rm compact\ continuum}
+    \subseteq
+    \mathcal F_{\rm lifted\ cells}.
+    }
+    \label{eq:stage5b-feasible-chain}
+\end{equation}
+
+\subsubsection{Relation to Stages 4 and 5A}
+
+Stage~5B makes precise why the Stage-4 compact-\(u\) model was useful.
+Stage~4 assumed an abstract statement
+\[
+    \Pr(
+      U_A>u_{A,+}
+      \text{ or }
+      U_B>u_{B,+}
+      \mid A_{\rm mon}
+    )
+    \le
+    \epsilon_{\rm mon}.
+\]
+Stage~5B derives exactly this form from a PNA bound on the
+\emph{pre-attenuation} surviving Fock number followed by a known trusted loss:
+\[
+    N_X\le N_{X,+}
+    \quad\Longrightarrow\quad
+    U_X=\lambda_XN_X
+    \le
+    \lambda_XN_{X,+}.
+\]
+Thus Stage~5B can be viewed as a physical route to the Stage-4 security
+interface.
+
+At the physical-channel level, setting \(\lambda=1\) removes the extra
+attenuator and recovers the Stage-5A architecture.  The \emph{continuum outer
+relaxation}, however, is not intended to be numerically continued to
+\(\lambda=1\): Stage~5A is tighter there because it keeps the small discrete
+Fock structure and the PNA-derived occupancy constraints.  Stage~5B is
+specifically useful when \(\lambda\ll1\) and the pre-attenuation \(N\) is too
+large for a direct Fock-space SDP.
+
+The implementation is in
+\texttt{phase/pnp-stage-5b.py}.  Its current benchmark uses a \(50{:}50\)
+ideal PNA beam splitter, a hard monitor threshold, strong additional
+attenuation, a PNA-derived \(\epsilon_5\), and the certified lifted-cell
+continuum SDP.  No Stage-5B numerical results have yet been incorporated into
+these notes.
 
 \section{Open points}
 
@@ -3587,11 +4098,14 @@ The main unresolved items are now:
     saturation, timing and mode dependence, and derive a certified upper bound
     on \(\sup_m H_m(N_+)\) for that response.
 
-    \item \textbf{Stage 5B: add optional trusted attenuation.}
-    Extend Stage~5A by a subsequent pure-loss channel of transmissivity
-    \(\lambda\).  Verify explicitly that \(\lambda=1\) reduces to Stage~5A and
-    determine whether the extra attenuation materially improves the
-    security/performance tradeoff or merely implementation flexibility.
+    \item \textbf{Stage 5B: appendix benchmark and physical optimisation.}
+    The exact post-attenuation kernel and certified compact-continuum
+    relaxation are now explicit and implemented.  Run the Stage-5B benchmark,
+    check cell refinement and solver accuracy, and determine whether the
+    additional attenuator offers a useful security/performance or calibration
+    tradeoff beyond the simpler Stage-5A architecture.  For the paper, the
+    present preference is to keep this extension in an appendix unless it
+    reveals qualitatively new behaviour.
 
     \item \textbf{Physical threshold/performance optimisation.}
     Once the monitor model is available, jointly study monitor splitting
@@ -3629,14 +4143,23 @@ removed and useful phase-error bounds are recovered in the present scans.
 
 Stage~5A now makes the first physical reduction explicit.  A joint trusted
 beam splitter and destructive PNA determine an exact accepted signal state and
-overlap kernel; a certified bound on the accepted high-photon-number tail then
-reduces the arbitrary incoming source to a finite accepted-state Gram SDP.
-The remaining Stage-5A task is detector realism: the ideal hard-threshold
-formula is only a benchmark, while the final proof must certify the same tail
-quantity for a calibrated response \(a_c\).  Stage~5B will add optional
-further trusted attenuation.  The common phase orbit is not the obstacle in
-either case because monitoring and attenuation occur before the secret phase
-encoding.
+overlap kernel; the combination of a certified high-photon-number tail and
+PNA-derived occupancy constraints reduces the arbitrary incoming source to a
+small finite accepted-Fock Gram SDP.  The remaining Stage-5A task is detector
+realism: the ideal hard-threshold formulas are benchmarks, while the final
+proof must certify the same tail and occupancy information for a calibrated
+response \(a_c\).
+
+Stage~5B provides an optional complementary architecture.  A moderate PNA
+beam splitter may leave a very large accepted signal Fock number, after which
+strong trusted attenuation maps \(N\) to the small variable
+\(u=\lambda N\).  A PNA-derived upper tail then becomes a compact-(u)
+support statement, allowing the certified Stage-3/4 lifted continuum
+relaxation to be reused.  This is best viewed as an appendix generalisation of
+the cleaner Stage-5A main-text result unless its numerical performance reveals
+a separate practical advantage.  The common phase orbit is not the obstacle
+in either case because monitoring and attenuation occur before the secret
+phase encoding.
 
 \appendix
 
