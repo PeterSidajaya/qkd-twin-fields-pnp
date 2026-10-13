@@ -1411,28 +1411,79 @@ coherent; an arbitrary mixing measure \(\nu\) remains.
 
 For the certified numerical implementation there is no need to replace
 \(K_\tau\) by \(K_0\): Eq.~\eqref{eq:stage3-finite-kernel} can be used
-directly.  If \(K_0\) is used for analytic estimates, the bound
+directly.  If \(K_0\) is used for analytic estimates, the finite-\(\tau\)
+error can be bounded uniformly for the whole range \(0<\tau<1/2\).
+
+Write
+\[
+    b_X^{st}
+    =
+    -a_X^{st}
+    +
+    d_X^{st}.
+\]
+From the convergent logarithm series,
+\[
+    d_X^{st}
+    =
+    -
+    \sum_{k=2}^{\infty}
+    \frac{
+      \tau^{k-1}(a_X^{st})^k
+    }{k}.
+\]
+Since \(|a_X^{st}|\le2\),
+\begin{align}
+    |d_X^{st}|
+    &\le
+    \sum_{k=2}^{\infty}
+    \frac{
+      \tau^{k-1}2^k
+    }{k}
+    \nonumber\\
+    &\le
+    \frac{2\tau}{1-2\tau}
+    =:
+    c_\tau.
+    \label{eq:stage3-log-remainder-coeff}
+\end{align}
+Therefore, with \(S:=u_A+u_B\),
 \begin{equation}
-    |K_\tau^{st}-K_0^{st}|
+    \boxed{
+    |K_\tau^{st}(u)-K_0^{st}(u)|
     \le
-    4\tau(u_A+u_B)
-    e^{4\tau(u_A+u_B)}
+    c_\tau S e^{c_\tau S},
+    \qquad
+    c_\tau=\frac{2\tau}{1-2\tau}.
+    }
     \label{eq:stage3-pointwise-error}
 \end{equation}
-provides an explicit finite-\(\tau\) error.  On a region
-\(u_A+u_B\le U\),
+Indeed,
+\(K_\tau^{st}=K_0^{st}e^{D_{st}}\) with
+\(|D_{st}|\le c_\tau S\), while \(|K_0^{st}|\le1\), and
+\(|e^D-1|\le |D|e^{|D|}\).
+
+On a represented region \(S\le U\), using
+\(\int S\,d\nu\le\bar n\),
 \begin{equation}
+    \boxed{
     \left|
       \int K_\tau^{st}\,d\nu
       -
       \int K_0^{st}\,d\nu
     \right|
     \le
-    4\tau\bar n\,e^{4\tau U}.
+    c_\tau\bar n\,e^{c_\tau U}.
+    }
     \label{eq:stage3-integrated-error}
 \end{equation}
-This \(K_0\)-replacement is therefore optional, not part of the preferred
-certified solver.
+For the stronger restriction \(\tau\le1/4\),
+\(c_\tau\le4\tau\), so the simpler estimate
+\(4\tau S e^{4\tau S}\) is also valid.  It should not, however, be quoted
+uniformly over the full interval \(0<\tau<1/2\).
+
+This \(K_0\)-replacement is optional and is not part of the preferred
+certified solver, which retains the exact finite-\(\tau\) kernel.
 
 \subsection{Only finitely many moments of \(\nu\) are visible to the SDP}
 
