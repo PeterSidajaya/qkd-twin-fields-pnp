@@ -98,6 +98,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+import pnp_benchmark as benchmark
+from pnp_results import result_row, report
+
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -225,52 +228,27 @@ def state_phases(M: int) -> list[tuple[float, float]]:
 # Synthetic accepted-ensemble central statistics
 
 
-def synthetic_channel(n_bar: float, distance_km: float) -> tuple[float, float]:
-    """
-    Synthetic central-node statistics CONDITIONED on monitor acceptance.
-
-    n_bar is the nominal total honest brightness after the complete local
-    monitor + extra-attenuation stage.  This does not model P_mon.
-    """
-    if n_bar < 0.0:
-        raise ValueError("n_bar must be nonnegative.")
-    if distance_km < 0.0:
-        raise ValueError("distance_km must be nonnegative.")
-
-    eta = ETA_DET * 10 ** (-XI * distance_km / 10.0)
-    p_dc = 0.0 if LOSS_ONLY else P_DC
-    e_ali = 0.0 if LOSS_ONLY else E_ALI
-
-    p_sig = 1.0 - np.exp(-eta * n_bar)
-    p_pass = p_sig + p_dc
-    if p_pass <= 0.0:
-        return 0.0, 0.0
-
-    e_bit = (e_ali * p_sig + 0.5 * p_dc) / p_pass
-    return float(p_pass), float(e_bit)
-
-
 def synthetic_announcement_probabilities(
-    M: int,
-    n_bar: float,
-    distance_km: float,
+    M: int, n_bar: float, distance_km: float
 ) -> tuple[dict[int, np.ndarray], float, float]:
-    ns = 4 * M
-    p_pass, e_bit = synthetic_channel(n_bar, distance_km)
+    """
+    Shared two-arm coherent-reference synthetic stats (NOT experimental data).
+    L is total Alice--Bob distance; n_bar is post-local-optics nominal mean.
+    For basis-dependent extra attenuation use the PM script's version.
+    """
+    return benchmark.coherent_reference_probabilities(
+        M, n_bar, distance_km,
+        eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
 
-    p_plus = np.zeros(ns)
-    p_minus = np.zeros(ns)
 
-    for s in range(ns):
-        hit = (1.0 - e_bit) * p_pass
-        miss = e_bit * p_pass
-        if (s % 4) in (0, 3):
-            p_plus[s], p_minus[s] = hit, miss
-        else:
-            p_plus[s], p_minus[s] = miss, hit
-
-    p_fail = np.maximum(1.0 - p_plus - p_minus, 0.0)
-    return {Z_P: p_plus, Z_M: p_minus, Z_F: p_fail}, p_pass, e_bit
+def synthetic_channel(n_bar: float, distance_km: float) -> tuple[float,float]:
+    """Key-basis statistics from the shared coherent-reference benchmark."""
+    _, p_pass, e_bit = synthetic_announcement_probabilities(
+        M_DEFAULT, n_bar, distance_km
+    )
+    return p_pass, e_bit
 
 
 # ---------------------------------------------------------------------------
@@ -1043,4 +1021,24 @@ def main() -> None:
 
 
 if __name__ == "__main__":
-    main()
+    n_bar=0.01
+    results=run_scan(M=M_DEFAULT,n_bar=n_bar)
+    rows=[]
+    for r in results:
+        rows.append(result_row(
+            "stage5b",f"offset={r['offset']}",r["L_km"],
+            M=M_DEFAULT,n_bar=n_bar,e_ph_upper=r["e_ph"],
+            e_bit=r["e_bit"],P_pass_cond=r["Ppass_mon"],
+            R_acc=r["R_acc"],R_original=r["R_original"],
+            status=r["status"],P_monitor=P_MON_BOTH,
+            P_monitor_scope="illustrative lower bound",
+            epsilon_tail=r["epsilon_5"],beta=r["beta"],
+            tail_kind="PNA-certified pre-extra-loss tail",
+            phase_bound_scope="unrestricted e_ph SDP; conservative entropy when >=1/2",
+            parameters={"offset":r["offset"],"N_plus":r["N_plus"],
+                        "tau_s":TAU_S,"c_max":C_MAX,
+                        "lambda_att":LAMBDA_ATT,"N_U":N_U},
+            notes="Ideal PNA plus extra trusted loss/continuum; acceptance 0.99 is a placeholder.",
+        ))
+    report(rows,stage="stage5b")
+    plot_scan(results)
