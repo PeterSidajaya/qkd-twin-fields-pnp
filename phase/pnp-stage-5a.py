@@ -1503,6 +1503,44 @@ def plob_direct_link_bound(distance_km: float, fiber_loss_db_per_km: float = XI)
     return float(-np.log1p(-eta) / np.log(2.0))
 
 
+def local_loss_exponents(points, fiber_loss_db_per_km: float = XI):
+    """Adjacent secant estimates of d log(R) / d log(eta).
+
+    points are (total_distance_km, positive_original_round_rate) pairs.
+    Nonpositive or nonfinite rates cannot be placed on a log scale and are
+    omitted. Discrete differences are descriptive, NOT asymptotic exponents.
+    """
+    if not np.isfinite(fiber_loss_db_per_km) or fiber_loss_db_per_km <= 0:
+        raise ValueError("fiber_loss_db_per_km must be positive")
+    valid = sorted(
+        (float(L), float(rate))
+        for L, rate in points
+        if np.isfinite(L) and np.isfinite(rate) and L >= 0 and rate > 0
+    )
+    midpoints, exponents = [], []
+    for (L0, r0), (L1, r1) in zip(valid, valid[1:]):
+        if L1 <= L0:
+            continue
+        d_log_eta = -fiber_loss_db_per_km * np.log(10.0) * (L1 - L0) / 10.0
+        exponents.append(float((np.log(r1) - np.log(r0)) / d_log_eta))
+        midpoints.append(0.5 * (L0 + L1))
+    return np.asarray(midpoints), np.asarray(exponents)
+
+
+def plob_loss_exponent(distance_km: float, fiber_loss_db_per_km: float = XI) -> float:
+    """Exact local d log(K_PLOB) / d log(eta), not its asymptotic limit 1."""
+    if not np.isfinite(distance_km) or distance_km < 0:
+        raise ValueError("distance_km must be finite and nonnegative")
+    if not np.isfinite(fiber_loss_db_per_km) or fiber_loss_db_per_km <= 0:
+        raise ValueError("fiber_loss_db_per_km must be finite and positive")
+    if distance_km == 0:
+        return float("inf")
+    eta = 10.0 ** (-fiber_loss_db_per_km * distance_km / 10.0)
+    if eta == 0.0:
+        return 1.0
+    return float(eta / ((1.0 - eta) * (-np.log1p(-eta))))
+
+
 def plot_ideal_benchmark_scan(results, output_dir=None):
     """
     Save summary plots for the ideal Stage-5A distance/N_plus scan.
@@ -1669,12 +1707,16 @@ def plot_ideal_benchmark_scan(results, output_dir=None):
     plt.close(fig)
 
     # ------------------------------------------------------------------
-    # Repeaterless pure-loss PLOB capacity is per *end-to-end channel use*,
-    # not per monitor-accepted round. Only original-round R_original is drawn.
-    # The current P_monitor=0.99 remains illustrative, so this is a visual
-    # reference, NOT a certified rate-vs-capacity or PLOB violation claim.
-    # Zero-distance PLOB diverges and cannot appear on a finite log plot.
-    fig, ax = plt.subplots(figsize=(7.4, 5.0))
+    # Repeaterless PLOB: absolute reference per *end-to-end channel use*.
+    # Compare only rates per original round, not R_acc conditional on
+    # monitor acceptance. The current 0.99 acceptance remains illustrative.
+    # The lower panel measures the discrete effective exponent
+    # kappa=d log(R_original)/d log(eta_total); the ideal TF scaling is 1/2.
+    # Neither numerical slope nor this overlay certifies a PLOB violation.
+    fig, (ax, ax_kappa) = plt.subplots(
+        2, 1, figsize=(8.0, 8.0), sharex=True,
+        gridspec_kw={"height_ratios": [2.0, 1.0]},
+    )
     has_rate = False
     for n_plus in n_values:
         rows = sorted(
@@ -1683,29 +1725,62 @@ def plot_ideal_benchmark_scan(results, output_dir=None):
              and r["status"] in ("optimal", "optimal_inaccurate")),
             key=lambda r: r["L_km"],
         )
-        if rows:
-            ax.semilogy(
-                [r["L_km"] for r in rows],
-                [r["R_original"] for r in rows],
-                marker="o",
-                label=fr"$N_+={n_plus}$ (illustrative original-round rate)",
+        if not rows:
+            continue
+        line, = ax.semilogy(
+            [r["L_km"] for r in rows],
+            [r["R_original"] for r in rows],
+            marker="o",
+            label=fr"$N_+={n_plus}$ (original-round benchmark)",
+        )
+        # An inaccurate SDP status is never used for extracting a slope.
+        reliable = [
+            (r["L_km"], r["R_original"])
+            for r in rows if r["status"] == "optimal"
+        ]
+        midpoint, exponent = local_loss_exponents(reliable)
+        if len(midpoint):
+            ax_kappa.plot(
+                midpoint, exponent, marker="o", color=line.get_color(),
+                label=fr"$N_+={n_plus}$ (finite differences)",
             )
-            has_rate = True
+        has_rate = True
 
     positive_distances = [d for d in distances if d > 0]
     if positive_distances:
-        plob_x = np.linspace(min(positive_distances), max(positive_distances), 240)
-        plob_y = [plob_direct_link_bound(d) for d in plob_x]
+        L_min = min(positive_distances)
+        L_max = max(positive_distances)
+        if L_min == L_max:
+            plob_x = np.asarray([L_min])
+        else:
+            plob_x = np.linspace(L_min, L_max, 240)
         ax.semilogy(
-            plob_x, plob_y, "k--", lw=1.8,
-            label="PLOB: direct pure-loss link (total Alice-Bob distance)",
+            plob_x, [plob_direct_link_bound(d) for d in plob_x],
+            "k--", lw=1.8, label="PLOB (exact repeaterless direct-link bound)",
         )
-    ax.set_xlabel("Total Alice-Bob fiber distance (km)")
-    ax.set_ylabel("Rate (bits per original round / direct-link channel use)")
-    ax.set_title("Stage 5A: illustrative original-round rate vs PLOB")
+        ax_kappa.plot(
+            plob_x, [plob_loss_exponent(d) for d in plob_x],
+            "k--", lw=1.6, label="PLOB local exponent (exact)",
+        )
+    ax_kappa.axhline(
+        0.5, color="gray", linestyle=":", linewidth=1.7,
+        label=r"Ideal $R\\propto\\sqrt{\\eta}$ exponent = 1/2",
+    )
+    ax_kappa.axhline(
+        1.0, color="gray", linestyle="-.", linewidth=1.1,
+        label=r"High-loss PLOB exponent = 1",
+    )
+
+    ax.set_ylabel("Key rate (bits per original round / direct-link use)")
+    ax.set_title("Stage 5A: original-round key rate vs PLOB and loss exponent")
     ax.grid(True, which="both", alpha=0.25)
-    if positive_distances or has_rate:
+    if has_rate or positive_distances:
         ax.legend(fontsize=7)
+
+    ax_kappa.set_xlabel("Total Alice-Bob fiber distance (km)")
+    ax_kappa.set_ylabel(r"Effective exponent $d\\log R/d\\log\\eta$")
+    ax_kappa.grid(True, alpha=0.25)
+    ax_kappa.legend(fontsize=7)
     fig.tight_layout()
     plob_path = output_dir / "stage5a-rate-vs-plob.png"
     fig.savefig(plob_path, dpi=220)
