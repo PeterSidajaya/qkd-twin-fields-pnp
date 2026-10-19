@@ -93,6 +93,9 @@ import os
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from pathlib import Path
 
+
+import pnp_benchmark as benchmark
+from pnp_results import result_row, report
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -169,21 +172,13 @@ def h2(e):
     )
 
 
-def channel(n_bar, L):
-    """
-    Synthetic observed statistics for monitor-accepted rounds.
-
-    n_bar remains the nominal honest total returned mean used to generate
-    P_pass and e_bit.  Security of the accepted ensemble is constrained by
-    u_cap and epsilon_mon, not by a mean-energy inequality on nu_acc.
-    """
-    eta = ETA_DET * 10 ** (-XI * L / 10.0)
-    p_dc = 0.0 if LOSS_ONLY else P_DC
-    e_ali = 0.0 if LOSS_ONLY else E_ALI
-    P_sig = 1.0 - np.exp(-eta * n_bar)
-    P_pass = P_sig + p_dc
-    return P_pass, (e_ali * P_sig + 0.5 * p_dc) / P_pass
-
+def channel(n_bar, L, M_scan=None):
+    """Shared synthetic coherent reference; L is TOTAL Alice-Bob km."""
+    _, p_pass, e_obs = benchmark.coherent_reference_probabilities(
+        M if M_scan is None else M_scan, n_bar, L, eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
+    return p_pass, e_obs
 
 def exact_kernel_coeff(dphi, t2):
     """
@@ -327,17 +322,10 @@ def solve_eph(
 
     phases = state_phases(M)
     NS = 4 * M
-    P_pass, e_obs = channel(n_bar, L)
-
-    P_plus = np.zeros(NS)
-    P_minus = np.zeros(NS)
-    for s in range(NS):
-        hit, miss = (1 - e_obs) * P_pass, e_obs * P_pass
-        P_plus[s], P_minus[s] = (
-            (hit, miss) if (s % 4) in (0, 3) else (miss, hit)
-        )
-    P_fail = 1.0 - P_plus - P_minus
-    prob_of = {Z_P: P_plus, Z_M: P_minus, Z_F: P_fail}
+    prob_of, P_pass, e_obs = benchmark.coherent_reference_probabilities(
+        M, n_bar, L, eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
 
     active = [
         (z, s)
@@ -748,40 +736,24 @@ def print_scan(results):
 # --------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    n_bar = 0.01
-
-    print(
-        f"M = {M}, n_bar = {n_bar}, t^2 = {T2:g}, eps_mon = {EPS_MON:g}, "
-        f"N_U = {N_U}, workers = {MAX_WORKERS}"
+    n_bar=0.01
+    results=run_scan(
+        M,n_bar,distances=DISTANCES_KM,
+        u_max_factors=U_MAX_FACTORS,eps_mon=EPS_MON,
+        t2=T2,n_u=N_U,max_workers=MAX_WORKERS,
     )
-    print(
-        "Certified Stage-4 upper-energy monitor relaxation; no lower-energy "
-        "threshold is assumed."
-    )
-    print(
-        "Scanning distance and u_max in parallel, with "
-        "u_max = u_factor * n_bar/2 per arm."
-    )
-
-    results = run_scan(
-        M,
-        n_bar,
-        distances=DISTANCES_KM,
-        u_max_factors=U_MAX_FACTORS,
-        eps_mon=EPS_MON,
-        t2=T2,
-        n_u=N_U,
-        max_workers=MAX_WORKERS,
-    )
-    print_scan(results)
-
-    plot_paths = plot_scan(results)
-    print("\nSaved scan plots:")
-    for path in plot_paths:
-        print(f"  {path}")
-
-    print(
-        "\nR_acc is conditional on monitor acceptance.  A physical detector "
-        "model must provide P_mon and justify eps_mon before converting this "
-        "to a per-original-round key rate."
-    )
+    rows=[]
+    for r in results:
+        rows.append(result_row(
+            "stage4",f"u_factor={r['u_factor']:g}",r["L_km"],
+            M=M,n_bar=n_bar,e_ph_upper=r["e_ph"],
+            e_bit=r["e_bit"],P_pass_cond=r["Ppass_mon"],
+            R_acc=r["R_acc"],status=r["status"],
+            P_monitor_scope="unknown",epsilon_tail=EPS_MON,
+            beta=r["beta"],tail_kind="conditional monitor-tail interface (assumed)",
+            phase_bound_scope="legacy e_ph<=1/2 imposed in SDP",
+            parameters={"t2":T2,"u_factor":r["u_factor"],"u_max":r["u_max"],"N_U":N_U},
+            notes="Abstract monitor interface only; physical P_monitor and original-round rate unknown.",
+        ))
+    report(rows,stage="stage4")
+    plot_scan(results)
