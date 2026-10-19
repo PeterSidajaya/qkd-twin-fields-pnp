@@ -63,7 +63,7 @@ import math
 # Parameters
 # --------------------------------------------------------------------------
 
-M = 5                  # bases; basis 0 is key, 1..M-1 are test
+M = 4                  # bases; basis 0 is key, 1..M-1 are test
 N_MAX = 7              # Fock truncation, n_A + n_B <= N_MAX
 F_EC = 1.15
 
