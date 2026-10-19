@@ -95,7 +95,7 @@ from pathlib import Path
 
 
 import pnp_benchmark as benchmark
-from pnp_results import result_row, report
+from pnp_results import result_row, report, stage_results_dir
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -606,13 +606,13 @@ def plot_scan(results, output_dir=None):
       2. R_acc versus distance, one curve per u_max factor;
       3. a heat map of e_ph over (distance, u_max factor).
 
-    By default figures are written next to this script.
+    By default figures are written under phase/results/stage4/.
     """
     if not results:
         raise ValueError("Cannot plot an empty scan.")
 
     if output_dir is None:
-        output_dir = Path(__file__).resolve().parent
+        output_dir = stage_results_dir("stage4")
     else:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
