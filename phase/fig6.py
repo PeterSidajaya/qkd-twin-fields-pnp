@@ -40,6 +40,7 @@ import cvxpy as cp
 import math
 import time
 import itertools
+from pathlib import Path
 
 # --------------------------------------------------------------------------
 # Parameters
@@ -522,6 +523,7 @@ if __name__ == "__main__":
                  + ("loss only" if LOSS_ONLY else "Parameter 2"))
     fig.tight_layout()
 
-    out = "fig6-reproduction.png"
+    out = Path(__file__).resolve().parent / "results" / "analysis" / "fig6-reproduction.png"
+    out.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(out, dpi=160)
     print(f"\nwrote {out}")
