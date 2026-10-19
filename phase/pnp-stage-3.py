@@ -70,6 +70,9 @@ interpretation, but is not used in the certified numerical constraints here.
 
 import math
 
+
+import pnp_benchmark as benchmark
+from pnp_results import result_row, report
 import cvxpy as cp
 import numpy as np
 
@@ -123,14 +126,13 @@ def h2(e):
     )
 
 
-def channel(n_bar, L):
-    eta = ETA_DET * 10 ** (-XI * L / 10.0)
-    p_dc = 0.0 if LOSS_ONLY else P_DC
-    e_ali = 0.0 if LOSS_ONLY else E_ALI
-    P_sig = 1.0 - np.exp(-eta * n_bar)
-    P_pass = P_sig + p_dc
-    return P_pass, (e_ali * P_sig + 0.5 * p_dc) / P_pass
-
+def channel(n_bar, L, M_scan=None):
+    """Shared synthetic coherent reference; L is TOTAL Alice-Bob km."""
+    _, p_pass, e_obs = benchmark.coherent_reference_probabilities(
+        M if M_scan is None else M_scan, n_bar, L, eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
+    return p_pass, e_obs
 
 # --------------------------------------------------------------------------
 # Certified continuum cells
@@ -422,17 +424,10 @@ def kernel_linearization_data(phases, pairs, cells, t2):
 def solve_eph(M, n_bar, L, t2=T2, solver=None, solver_opts=None):
     phases = state_phases(M)
     NS = 4 * M
-    P_pass, e_obs = channel(n_bar, L)
-
-    P_plus = np.zeros(NS)
-    P_minus = np.zeros(NS)
-    for s in range(NS):
-        hit, miss = (1 - e_obs) * P_pass, e_obs * P_pass
-        P_plus[s], P_minus[s] = (
-            (hit, miss) if (s % 4) in (0, 3) else (miss, hit)
-        )
-    P_fail = 1.0 - P_plus - P_minus
-    prob_of = {Z_P: P_plus, Z_M: P_minus, Z_F: P_fail}
+    prob_of, P_pass, e_obs = benchmark.coherent_reference_probabilities(
+        M, n_bar, L, eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
 
     # Zero-norm reduction: a zero Gram diagonal forces its whole row/column to
     # vanish under PSD, so remove such vectors to avoid strict-feasibility
@@ -623,49 +618,19 @@ def solve_eph(M, n_bar, L, t2=T2, solver=None, solver_opts=None):
 # --------------------------------------------------------------------------
 
 if __name__ == "__main__":
-    n_bar = 0.01
-    cells = build_cells()
-
-    print(
-        f"M = {M}, n_bar = {n_bar}, t^2 = {T2:g}, "
-        f"U_MAX = {U_MAX:g}, N_U = {N_U}, "
-        f"{len(cells['center'])} clipped cells"
-    )
-    print(
-        "Certified Stage-3 cell outer relaxation using the exact finite-tau "
-        "kernel K_tau."
-    )
-    print(
-        f"{'L(km)':>7} {'e_ph':>8} {'e_bit':>8} {'P_pass':>11} "
-        f"{'R':>11} {'eps_tail':>11} {'EA_in':>11}  status"
-    )
-
-    for L in (0.0, 2.0, 5.0, 10.0):
-        e_ph, e_bit, P_pass, st, q_val, diag = solve_eph(
-            M, n_bar, L
-        )
-        R = P_pass * max(
-            0.0,
-            1 - h2(e_ph) - F_EC * h2(e_bit),
-        )
-
-        if q_val is None:
-            print(
-                f"{L:7.1f} {'-':>8} {'-':>8} {P_pass:11.3e} "
-                f"{'-':>11} {'-':>11} {'-':>11}  {st}"
-            )
-            continue
-
-        print(
-            f"{L:7.1f} {e_ph:8.4f} {e_bit:8.4f} {P_pass:11.3e} "
-            f"{R:11.3e} {diag['eps_tail']:11.3e} "
-            f"{diag['mean_A_in']:11.3e}  {st}",
-            flush=True,
-        )
-
-    print(
-        "\nRefinement note: the lifted first-order model has a certified "
-        "second-order within-cell remainder. Independent relaxations at "
-        "different resolutions are still not automatically nested; retain "
-        "parent-cell constraints if a provably monotone hierarchy is needed."
-    )
+    n_bar=0.01
+    rows=[]
+    for L in (0.0,2.0,5.0,10.0):
+        e_ph,e_bit,P_pass,status,q_val,diag=solve_eph(M,n_bar,L)
+        ok=status in ("optimal","optimal_inaccurate")
+        R=P_pass*max(0.0,1-h2(e_ph)-F_EC*h2(e_bit)) if ok else None
+        rows.append(result_row(
+            "stage3","mean-only continuum",L,M=M,n_bar=n_bar,
+            e_ph_upper=e_ph if ok else None,e_bit=e_bit,
+            P_pass_cond=P_pass,R_acc=R,status=status,
+            epsilon_tail=diag.get("eps_tail"),tail_kind="continuum outside U_MAX",
+            P_monitor_scope="none",phase_bound_scope="legacy e_ph<=1/2 imposed in SDP",
+            parameters={"t2":T2,"U_MAX":U_MAX,"N_U":N_U},
+            notes="Cell outer relaxation; q_j are cell masses, not exact point masses.",
+        ))
+    report(rows,stage="stage3")
