@@ -48,7 +48,7 @@ from pathlib import Path
 from typing import Sequence
 
 import pnp_benchmark as benchmark
-from pnp_results import result_row, report
+from pnp_results import result_row, report, stage_results_dir
 
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -682,17 +682,17 @@ def scan_pm_profiles(
     return output
 
 
-def plot_pm_profiles(results: Sequence[dict], output_dir=None):
+def plot_pm_profiles(results: Sequence[dict], output_dir=None, *, filename_prefix="pm"):
     """Plot phase-error and rate comparisons with equal key-basis loss."""
     if not results:
         raise ValueError("No results to plot.")
     if output_dir is None:
-        output_dir = Path(__file__).resolve().parent / "stage5a-PM-plots"
+        output_dir = stage_results_dir("stage5a-PM")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True,exist_ok=True)
     for ykey,ylabel,filename in (
-        ("e_ph",r"$e_{\rm ph}^{\rm upper}$","pm-eph-comparison.png"),
-        ("R_original",r"$R_{\rm original}$","pm-rate-comparison.png"),
+        ("e_ph",r"$e_{\rm ph}^{\rm upper}$",f"{filename_prefix}-eph-comparison.png"),
+        ("R_original",r"$R_{\rm original}$",f"{filename_prefix}-rate-comparison.png"),
     ):
         fig,ax=plt.subplots(figsize=(7.0,4.5))
         for profile in dict.fromkeys(r["profile"] for r in results):
@@ -901,7 +901,7 @@ def parse_pm_opt_args(argv=None):
     parser.add_argument("--workers", type=int, default=min(4, os.cpu_count() or 1))
     parser.add_argument("--solver", choices=["auto", "mosek", "clarabel"], default="auto")
     parser.add_argument("--seed", type=int, default=2026)
-    parser.add_argument("--output", type=Path, default=Path(__file__).with_name("stage5a-PM-opt-results.json"))
+    parser.add_argument("--output", type=Path, default=stage_results_dir("stage5a-PM") / "optimization-results.json")
     parser.add_argument("--plot", action="store_true", help="Plot optimized and fixed profiles")
     args = parser.parse_args(argv)
     if not 2 <= args.M or not 0 <= args.lambda_min < 1:
@@ -958,7 +958,7 @@ def main_optimize(argv=None):
             # Checkpoint completed distances even if a later distance fails.
             args.output.write_text(json.dumps(data, indent=2, allow_nan=False) + "\n")
     if args.plot:
-        plot_pm_profiles(plot_rows, output_dir=args.output.parent / "stage5a-PM-opt-plots")
+        plot_pm_profiles(plot_rows, output_dir=stage_results_dir("stage5a-PM"), filename_prefix="pm-optimized")
     print(f"Saved {args.output}")
 
 
