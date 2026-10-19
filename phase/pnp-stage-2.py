@@ -297,61 +297,22 @@ def eps_in_bound(n_bar, t2, N_IN):
 
 
 if __name__ == "__main__":
-    n_bar, L = 0.005, 2.0
-    print(f"M = {M}, n_bar = {n_bar}, L = {L}, N_OUT = {N_OUT}, "
-          f"N_IN = {N_IN}, SLACK_FLOOR = {SLACK_FLOOR:g}")
-    print("Reference without attenuation (pnp.py, M=4): e_ph = 0.2573")
-    print(f"worst-case eps_in at this N_IN: t^2=0.1 -> "
-          f"{eps_in_bound(n_bar, 0.1, N_IN):.2e}, t^2=0.01 -> "
-          f"{eps_in_bound(n_bar, 0.01, N_IN):.2e} "
-          f"(a ceiling, not a target)\n")
-    print(f"{'t^2':>8} {'e_ph':>8} {'R':>11} {'eps_in':>11} "
-          f"{'E_q[nA]':>10} {'q(nA>=2)':>10} {'g2_out':>8}  status")
-    for t2 in (0.1,):
-        e_ph, e_bit, P_pass, st, pv, qv = solve(M, n_bar, L, t2)
-        R = P_pass * max(0.0, 1 - h2(e_ph) - F_EC * h2(e_bit))
-        if qv is None:
-            print(f"{t2:8.3f} {'-':>8} {'-':>11} {'-':>11} {'-':>10} "
-                  f"{'-':>10} {'-':>8}  {st}")
-            continue
-        EA = float(QA @ qv)
-        q2 = float(qv[QA >= 2].sum())
-        g2 = float((QA * (QA - 1)) @ qv) / EA ** 2 if EA > 0 else float("nan")
-        eps_in = 1 - pv.sum()
-        flag = "  <- eps_in < 0" if eps_in < -1e-9 else ""
-        print(f"{t2:8.3f} {e_ph:8.4f} {R:11.3e} {eps_in:11.3e} "
-              f"{EA:10.3e} {q2:10.3e} {g2:8.2f}  {st}{flag}", flush=True)
-
-    # Standing check. e_ph must be non-increasing in N_IN: restricting a
-    # feasible p from a larger grid to a smaller one stays feasible, because
-    # the mass moved into the tail has m_A + m_B >= N_IN + 1 and so is
-    # suppressed by at least |z|^(N_IN+1) in the overlap and charged at least
-    # N_IN + 1 in the energy constraint. A non-monotone run means the numbers
-    # are wrong whatever status the solver reports.
-    # print("\nMonotonicity check (e_ph must not increase with N_IN):")
-    # import subprocess, sys, os
-    # t2 = 0.1
-    # prev = None
-    # for NIN in MONO_N_IN:
-    #     src = open(__file__).read().replace(f"N_IN = {N_IN}", f"N_IN = {NIN}", 1)
-    #     tmp = f"_mono_{NIN}.py"
-    #     open(tmp, "w").write(src.split('if __name__ == "__main__":
     n_bar = 0.005
     rows = []
     for L in (2.0,):
         for t2 in (0.1,):
-            e_ph,e_bit,P_pass,status,pv,qv=solve(M,n_bar,L,t2)
-            ok=status in ("optimal","optimal_inaccurate")
-            R=P_pass*max(0.0,1-h2(e_ph)-F_EC*h2(e_bit)) if ok else None
-            eps=(1-float(np.sum(pv))) if pv is not None else None
+            e_ph, e_bit, P_pass, status, pv, qv = solve(M, n_bar, L, t2)
+            ok = status in ("optimal", "optimal_inaccurate")
+            R = P_pass * max(0.0, 1 - h2(e_ph) - F_EC * h2(e_bit)) if ok else None
+            eps = (1 - float(np.sum(pv))) if pv is not None else None
             rows.append(result_row(
-                "stage2",f"t2={t2:g}",L,M=M,n_bar=n_bar,
-                e_ph_upper=e_ph if ok else None,e_bit=e_bit,
-                P_pass_cond=P_pass,R_acc=R,status=status,
-                epsilon_tail=eps,tail_kind="input Fock truncation",
+                "stage2", f"t2={t2:g}", L, M=M, n_bar=n_bar,
+                e_ph_upper=e_ph if ok else None, e_bit=e_bit,
+                P_pass_cond=P_pass, R_acc=R, status=status,
+                epsilon_tail=eps, tail_kind="input Fock truncation",
                 P_monitor_scope="none",
                 phase_bound_scope="legacy e_ph<=1/2 imposed in SDP",
-                parameters={"t2":t2,"N_IN":N_IN,"N_OUT":N_OUT},
-                notes="Physical attenuation kernel; historical e_ph<=1/2 constraint requires separate justification.",
+                parameters={"t2": t2, "N_IN": N_IN, "N_OUT": N_OUT},
+                notes="Physical attenuation kernel; legacy e_ph<=1/2 constraint requires proof.",
             ))
-    report(rows,stage="stage2")
+    report(rows, stage="stage2")
