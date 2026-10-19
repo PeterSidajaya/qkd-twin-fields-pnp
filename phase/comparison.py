@@ -202,4 +202,4 @@ if __name__ == "__main__":
     output = Path(__file__).resolve().parent / "results" / "analysis" / "comparison.png"
     output.parent.mkdir(parents=True, exist_ok=True)
     fig.savefig(output, dpi=160)
-    print(f"\\nwrote {output}")
+    print(f"\nwrote {output}")
