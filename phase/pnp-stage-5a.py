@@ -150,7 +150,7 @@ from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 import pnp_benchmark as benchmark
-from pnp_results import result_row, report
+from pnp_results import result_row, report, stage_results_dir
 
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -1486,25 +1486,42 @@ def print_ideal_benchmark_scan(results) -> None:
         )
 
 
+def plob_direct_link_bound(distance_km: float, fiber_loss_db_per_km: float = XI) -> float:
+    """Repeaterless pure-loss PLOB bound for *total* Alice-Bob fiber distance.
+
+    K(eta) = -log2(1 - eta), eta = 10**(-alpha*L/10). Units: bits per
+    end-to-end pure-loss channel use. At zero distance eta=1 and K=+inf.
+    This is an external direct-link reference, not a certified PnP rate.
+    """
+    if not np.isfinite(distance_km) or distance_km < 0:
+        raise ValueError("distance_km must be finite and nonnegative")
+    if not np.isfinite(fiber_loss_db_per_km) or fiber_loss_db_per_km <= 0:
+        raise ValueError("fiber_loss_db_per_km must be finite and positive")
+    if distance_km == 0:
+        return float("inf")
+    eta = float(10.0 ** (-fiber_loss_db_per_km * distance_km / 10.0))
+    return float(-np.log1p(-eta) / np.log(2.0))
+
+
 def plot_ideal_benchmark_scan(results, output_dir=None):
     """
     Save summary plots for the ideal Stage-5A distance/N_plus scan.
 
-    Five figures are produced:
+    Six figures are produced:
       1. e_ph versus distance, one curve per N_plus;
       2. accepted-round key rate versus distance, one curve per N_plus;
       3. epsilon_5 versus N_plus;
       4. heat map of e_ph over (distance,N_plus);
-      5. ideal monitor-derived one-arm occupancy caps versus n.
+      5. ideal monitor-derived one-arm occupancy caps versus n;
+      6. original-round benchmark rate versus direct-link PLOB (L > 0).
 
-    By default figures are written to a stage5a-plots directory next to this
-    script.
+    By default figures are written to phase/results/stage5a/.
     """
     if not results:
         raise ValueError("Cannot plot an empty scan.")
 
     if output_dir is None:
-        output_dir = Path(__file__).resolve().parent / "stage5a-plots"
+        output_dir = stage_results_dir("stage5a")
     else:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
@@ -1651,7 +1668,50 @@ def plot_ideal_benchmark_scan(results, output_dir=None):
     fig.savefig(occ_path, dpi=220)
     plt.close(fig)
 
-    return eph_path, rate_path, eps_path, heat_path, occ_path
+    # ------------------------------------------------------------------
+    # Repeaterless pure-loss PLOB capacity is per *end-to-end channel use*,
+    # not per monitor-accepted round. Only original-round R_original is drawn.
+    # The current P_monitor=0.99 remains illustrative, so this is a visual
+    # reference, NOT a certified rate-vs-capacity or PLOB violation claim.
+    # Zero-distance PLOB diverges and cannot appear on a finite log plot.
+    fig, ax = plt.subplots(figsize=(7.4, 5.0))
+    has_rate = False
+    for n_plus in n_values:
+        rows = sorted(
+            (r for r in results if r["N_plus"] == n_plus
+             and r["R_original"] is not None and r["R_original"] > 0
+             and r["status"] in ("optimal", "optimal_inaccurate")),
+            key=lambda r: r["L_km"],
+        )
+        if rows:
+            ax.semilogy(
+                [r["L_km"] for r in rows],
+                [r["R_original"] for r in rows],
+                marker="o",
+                label=fr"$N_+={n_plus}$ (illustrative original-round rate)",
+            )
+            has_rate = True
+
+    positive_distances = [d for d in distances if d > 0]
+    if positive_distances:
+        plob_x = np.linspace(min(positive_distances), max(positive_distances), 240)
+        plob_y = [plob_direct_link_bound(d) for d in plob_x]
+        ax.semilogy(
+            plob_x, plob_y, "k--", lw=1.8,
+            label="PLOB: direct pure-loss link (total Alice-Bob distance)",
+        )
+    ax.set_xlabel("Total Alice-Bob fiber distance (km)")
+    ax.set_ylabel("Rate (bits per original round / direct-link channel use)")
+    ax.set_title("Stage 5A: illustrative original-round rate vs PLOB")
+    ax.grid(True, which="both", alpha=0.25)
+    if positive_distances or has_rate:
+        ax.legend(fontsize=7)
+    fig.tight_layout()
+    plob_path = output_dir / "stage5a-rate-vs-plob.png"
+    fig.savefig(plob_path, dpi=220)
+    plt.close(fig)
+
+    return eph_path, rate_path, eps_path, heat_path, occ_path, plob_path
 
 
 # ---------------------------------------------------------------------------
