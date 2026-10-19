@@ -11,7 +11,36 @@ Run e.g.:
 
 Files are written to phase/results/<stage>/results.csv and results.json.
 Standard plots eph-vs-distance.png and rate-vs-distance.png appear when
-there are >=2 usable distances; existing stage-specific plots are retained.
+there are >=2 usable distances. **All future stage-specific plots also go
+into the same phase/results/<stage>/ directory**, rather than phase/ or
+separate stage*-plots directories. Historical image files already present in
+older folders are not automatically relocated.
+
+Stage 5A additionally writes stage5a-rate-vs-plob.png. This compares
+*illustrative per-original-round* Stage 5A rates (R_original, not conditional
+R_acc) with the repeaterless pure-loss PLOB reference
+K(eta)=-log2(1-eta), eta=10**(-0.2*L_km/10), where L_km is the total
+Alice-Bob distance. The PLOB curve starts at L>0 because it diverges at
+zero distance. Its units are bits per end-to-end channel use, so this
+overlay is a visual reference only: protocol resource accounting, physical
+monitor acceptance and observed statistics must be justified before
+claiming any PLOB violation.
+
+Stage 5A--PM provides a separate multiprocessing test-transmissivity
+optimizer in the SAME stage script (no standalone optimizer file):
+
+    python phase/pnp-stage-5a-PM.py --optimize --workers 4 --solver mosek --plot
+
+This searches lambda_1,...,lambda_(M-1) while lambda_0=1, using a seeded
+parallel heuristic. Its outputs are placed at:
+    phase/results/stage5a-PM/optimization-results.json
+    phase/results/stage5a-PM/pm-optimized-eph-comparison.png
+    phase/results/stage5a-PM/pm-optimized-rate-comparison.png
+
+Without --optimize the original fixed-vs-hand-picked comparison runs and
+writes different filenames, so the two runs do not overwrite one another.
+Auxiliary non-stage analysis scripts (fig6.py, comparison.py, nbar_scan.py)
+write future plots/scans under phase/results/analysis/.
 
 Uniform columns:
 

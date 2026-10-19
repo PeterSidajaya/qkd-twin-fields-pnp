@@ -35,6 +35,7 @@ import importlib.util
 import math
 import multiprocessing as mp
 import time
+from pathlib import Path
 
 import numpy as np
 
@@ -62,8 +63,9 @@ M_OVERRIDE = None          # number of bases; module default 4
 T2_OVERRIDE = None         # attenuation; module default 1e-6
 UMAX_OVERRIDE = None       # u-grid range; module default 20.0
 
-OUT_CSV = "nbar-scan.csv"
-OUT_PNG = "nbar-scan.png"
+OUT_DIR = Path(__file__).resolve().parent / "results" / "analysis"
+OUT_CSV = OUT_DIR / "nbar-scan.csv"
+OUT_PNG = OUT_DIR / "nbar-scan.png"
 
 # --------------------------------------------------------------------------
 # Worker
@@ -294,6 +296,7 @@ if __name__ == "__main__":
     # --- csv ---
     cols = ["n_bar", "L", "e_ph", "e_bit", "P_pass", "R", "EA", "g2",
             "eps_nu", "feasible", "status", "secs"]
+    OUT_DIR.mkdir(parents=True, exist_ok=True)
     with open(OUT_CSV, "w") as f:
         f.write(",".join(cols) + "\n")
         for nb in NBAR_GRID:

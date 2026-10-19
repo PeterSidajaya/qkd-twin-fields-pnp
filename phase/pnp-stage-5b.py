@@ -99,7 +99,7 @@ from pathlib import Path
 from typing import Sequence
 
 import pnp_benchmark as benchmark
-from pnp_results import result_row, report
+from pnp_results import result_row, report, stage_results_dir
 
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -874,7 +874,7 @@ def plot_scan(results, output_dir=None):
         raise ValueError("Cannot plot an empty scan.")
 
     if output_dir is None:
-        output_dir = Path(__file__).resolve().parent / "stage5b-plots"
+        output_dir = stage_results_dir("stage5b")
     else:
         output_dir = Path(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)

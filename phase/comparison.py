@@ -39,6 +39,7 @@ four, in both files.
 import importlib.util
 import math
 import multiprocessing as mp
+from pathlib import Path
 
 import numpy as np
 
@@ -198,5 +199,7 @@ if __name__ == "__main__":
     ax.legend(frameon=False, fontsize=8)
     ax.set_title("Trusted source vs plug-and-play, loss only")
     fig.tight_layout()
-    fig.savefig("comparison.png", dpi=160)
-    print("\nwrote comparison.png")
+    output = Path(__file__).resolve().parent / "results" / "analysis" / "comparison.png"
+    output.parent.mkdir(parents=True, exist_ok=True)
+    fig.savefig(output, dpi=160)
+    print(f"\nwrote {output}")

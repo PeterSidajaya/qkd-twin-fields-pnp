@@ -17,7 +17,7 @@ import numpy as np
 HERE=Path(__file__).resolve().parent
 sys.path.insert(0,str(HERE))
 import pnp_benchmark as bench
-from pnp_results import COLUMNS, result_row, write_outputs
+from pnp_results import COLUMNS, result_row, write_outputs, stage_results_dir
 
 
 def load_script(filename,name):
@@ -75,6 +75,73 @@ class TestUnifiedPnPOutput(unittest.TestCase):
             self.assertEqual(entries[0]["P_monitor"],"1.0")
             self.assertEqual(entries[1]["R_original"],"")
             self.assertEqual(entries[1]["epsilon_tail"],"0.01")
+
+
+    def test_stage_output_root(self):
+        self.assertEqual(
+            stage_results_dir("stage5a"),
+            HERE / "results" / "stage5a",
+        )
+        self.assertEqual(
+            stage_results_dir("stage5a-PM"),
+            HERE / "results" / "stage5a-PM",
+        )
+        with self.assertRaises(ValueError):
+            stage_results_dir("../outside")
+
+    def test_stage5a_plob_reference(self):
+        alpha = self.s5.XI
+        self.assertEqual(self.s5.plob_direct_link_bound(0.0), float("inf"))
+        for L in (2.0, 20.0, 40.0):
+            eta = 10 ** (-alpha * L / 10)
+            self.assertAlmostEqual(
+                self.s5.plob_direct_link_bound(L),
+                -np.log2(1 - eta),
+                places=12,
+            )
+        self.assertGreater(
+            self.s5.plob_direct_link_bound(20.0),
+            self.s5.plob_direct_link_bound(40.0),
+        )
+        with self.assertRaises(ValueError):
+            self.s5.plob_direct_link_bound(-1.0)
+
+    def test_pm_plot_filename_prefix_prevents_overwriting(self):
+        sample = [
+            dict(profile="fixed (Stage5A)", L_km=0.0,
+                 e_ph=0.08, R_original=0.003),
+            dict(profile="fixed (Stage5A)", L_km=20.0,
+                 e_ph=0.12, R_original=0.001),
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            self.pm.plot_pm_profiles(sample, output_dir=tmp)
+            self.pm.plot_pm_profiles(
+                sample, output_dir=tmp, filename_prefix="pm-optimized"
+            )
+            for name in (
+                "pm-eph-comparison.png", "pm-rate-comparison.png",
+                "pm-optimized-eph-comparison.png",
+                "pm-optimized-rate-comparison.png",
+            ):
+                self.assertTrue((Path(tmp) / name).is_file(), name)
+
+    def test_stage5a_plob_plot_is_in_stage_output_set(self):
+        # Test plotting only: no SDP solve; the monitor inputs are placeholders.
+        samples = [
+            dict(N_plus=2, L_km=L, e_ph=0.08 + L / 1000,
+                 R_acc=0.005 / (1 + L), R_original=0.00495 / (1 + L),
+                 status="optimal", epsilon_5=1e-4, tau_s=1e-8,
+                 c_max=1_000_000, P_mon=0.99)
+            for L in (0.0, 20.0, 40.0)
+        ]
+        with tempfile.TemporaryDirectory() as tmp:
+            paths = self.s5.plot_ideal_benchmark_scan(samples, output_dir=tmp)
+            self.assertEqual(len(paths), 6)
+            self.assertTrue(
+                (Path(tmp) / "stage5a-rate-vs-plob.png").is_file()
+            )
+            self.assertTrue(all(Path(p).is_file() for p in paths))
+
 
 
 if __name__=="__main__":

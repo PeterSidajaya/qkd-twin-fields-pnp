@@ -26,21 +26,29 @@ Use calibrated P(z | s, A_mon), monitor response and measured P_mon for a
 physical security claim.  R_original is conditional-key-rate times the
 supplied acceptance lower bound, not a certified PLOB comparison.
 
-No CVXPY solve happens at import time.  Direct execution runs kernel
-identity tests and a small profile comparison.
+No CVXPY solve happens at import time. Direct execution runs kernel identity
+tests and a profile comparison; --optimize instead runs a multiprocessing
+search of the test-basis transmissions. This search is heuristic, not a
+global-optimality claim. The synthetic monitor-data limitations still apply.
 """
 from __future__ import annotations
 
+import argparse
+from concurrent.futures import ProcessPoolExecutor, as_completed
 import importlib.util
+import json
 import math
 import os
+from multiprocessing import get_context
+import random
+import time
 import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
 import pnp_benchmark as benchmark
-from pnp_results import result_row, report
+from pnp_results import result_row, report, stage_results_dir
 
 import cvxpy as cp
 import matplotlib.pyplot as plt
@@ -674,17 +682,17 @@ def scan_pm_profiles(
     return output
 
 
-def plot_pm_profiles(results: Sequence[dict], output_dir=None):
+def plot_pm_profiles(results: Sequence[dict], output_dir=None, *, filename_prefix="pm"):
     """Plot phase-error and rate comparisons with equal key-basis loss."""
     if not results:
         raise ValueError("No results to plot.")
     if output_dir is None:
-        output_dir = Path(__file__).resolve().parent / "stage5a-PM-plots"
+        output_dir = stage_results_dir("stage5a-PM")
     output_dir = Path(output_dir)
     output_dir.mkdir(parents=True,exist_ok=True)
     for ykey,ylabel,filename in (
-        ("e_ph",r"$e_{\rm ph}^{\rm upper}$","pm-eph-comparison.png"),
-        ("R_original",r"$R_{\rm original}$","pm-rate-comparison.png"),
+        ("e_ph",r"$e_{\rm ph}^{\rm upper}$",f"{filename_prefix}-eph-comparison.png"),
+        ("R_original",r"$R_{\rm original}$",f"{filename_prefix}-rate-comparison.png"),
     ):
         fig,ax=plt.subplots(figsize=(7.0,4.5))
         for profile in dict.fromkeys(r["profile"] for r in results):
@@ -732,7 +740,233 @@ def main() -> None:
     plot_pm_profiles(results)
 
 
-if __name__=="__main__":
+# ---------------------------------------------------------------------------
+# Parallel PM profile optimization (lambda_0 fixed at one)
+# ---------------------------------------------------------------------------
+
+def latin_hypercube(n: int, dimension: int, lo: float, rng: random.Random):
+    """Reproducible stratified candidates without any optimization dependency."""
+    if n < 0 or dimension < 1 or not 0.0 <= lo < 1.0:
+        raise ValueError("Invalid Latin-hypercube arguments")
+    axes = []
+    for _ in range(dimension):
+        values = [lo + (1.0 - lo) * (k + rng.random()) / n for k in range(n)] if n else []
+        rng.shuffle(values)
+        axes.append(values)
+    return [tuple(axes[j][i] for j in range(dimension)) for i in range(n)]
+
+
+def _key(test_transmissions):
+    return tuple(round(float(x), 7) for x in test_transmissions)
+
+
+def _evaluate(task):
+    """Top-level pickleable worker: one SDP solve with no nested parallelism."""
+    distance, test, config = task
+    started = time.monotonic()
+    record = {
+        "distance_km": float(distance),
+        "lambda_by_basis": [1.0, *test],
+        "status": "error",
+        "e_ph": None,
+        "e_bit": None,
+        "p_pass": None,
+        "R_acc": None,
+        "R_original": None,
+        "elapsed_s": None,
+        "error": None,
+    }
+    try:
+        settings = make_pm_settings(record["lambda_by_basis"])
+        solver = None if config["solver"] == "auto" else getattr(cp, config["solver"].upper())
+        result, _ = solve_pm_ideal_benchmark(
+            settings=settings,
+            n_bar_before_loss=config["n_bar"],
+            distance_km=distance,
+            tau_s=config["tau_s"],
+            c_max=config["c_max"],
+            n_plus=config["n_plus"],
+            p_mon_both_lower=config["p_mon"],
+            loss_only=config["loss_only"],
+            solver=solver,
+        )
+        record.update(
+            status=str(result.status),
+            e_ph=float(result.e_ph_upper),
+            e_bit=float(result.e_bit),
+            p_pass=float(result.p_pass_mon),
+            R_acc=float(result.r_acc),
+            R_original=None if result.r_original is None else float(result.r_original),
+        )
+        if any(not math.isfinite(record[k]) for k in ("e_ph", "e_bit", "p_pass", "R_acc")):
+            record["status"] = "nonfinite"
+            for name in ("e_ph", "e_bit", "p_pass", "R_acc", "R_original"):
+                if record[name] is not None and not math.isfinite(record[name]):
+                    record[name] = None
+        if record["status"] != "optimal":
+            record["error"] = "Not an accepted optimum; requires solver verification"
+    except Exception as exc:
+        record["error"] = f"{type(exc).__name__}: {exc}"[:500]
+    record["elapsed_s"] = round(time.monotonic() - started, 3)
+    return record
+
+
+def _rank(record):
+    """Maximize accepted-round rate; minimize phase error to break zero-rate ties."""
+    if record["status"] != "optimal":
+        return (-math.inf, -math.inf)
+    return (record["R_acc"], -record["e_ph"])
+
+
+def _seed_profiles(dimension, lo):
+    """Always include fixed, the original hand-picked PM profile and low loss."""
+    fixed = (1.0,) * dimension
+    if dimension == 3:
+        handpicked = (0.8, 0.5, 0.2)
+    else:
+        handpicked = tuple(1.0 - 0.8 * (i + 1) / dimension for i in range(dimension))
+    handpicked = tuple(max(lo, value) for value in handpicked)
+    return [fixed, handpicked, (lo,) * dimension, ((1.0 + lo) / 2,) * dimension]
+
+
+def optimize_distance(executor, distance, config, *, random_samples, refine_rounds, rng):
+    """Parallel batch search, with exact-evaluation caching within this distance."""
+    dimension = config["M"] - 1
+    lo = config["lambda_min"]
+    seen = {}
+
+    def evaluate_batch(points):
+        pending = {}
+        for point in points:
+            point = _key(tuple(min(1.0, max(lo, value)) for value in point))
+            if point not in seen and point not in pending:
+                pending[point] = executor.submit(_evaluate, (distance, point, config))
+        by_future = {future: key for key, future in pending.items()}
+        for future in as_completed(by_future):
+            key = by_future[future]
+            try:
+                result = future.result()
+            except Exception as exc:
+                result = {"distance_km": distance, "lambda_by_basis": [1.0, *key],
+                          "status": "worker_error", "R_acc": None, "e_ph": None,
+                          "error": f"{type(exc).__name__}: {exc}"[:500]}
+            seen[key] = result
+        return len(pending)
+
+    initial = _seed_profiles(dimension, lo)
+    initial += latin_hypercube(random_samples, dimension, lo, rng)
+    evaluated = evaluate_batch(initial)
+    valid = [row for row in seen.values() if row["status"] == "optimal"]
+    if not valid:
+        raise RuntimeError(f"Distance {distance:g} km: no solver-certified 'optimal' status. "
+                           "Try --solver mosek or inspect the saved solver diagnostics.")
+    best = max(valid, key=_rank)
+    step = 0.25 * (1.0 - lo)
+    for _ in range(refine_rounds):
+        test = best["lambda_by_basis"][1:]
+        neighbors = []
+        for j in range(dimension):
+            for direction in (-1, 1):
+                neighbor = list(test)
+                neighbor[j] += direction * step
+                neighbors.append(tuple(neighbor))
+        evaluated += evaluate_batch(neighbors)
+        candidate = max((r for r in seen.values() if r["status"] == "optimal"), key=_rank)
+        if _rank(candidate) > _rank(best):
+            best = candidate
+        else:
+            step *= 0.5
+        if step < 0.002:
+            break
+    fixed = seen[_key((1.0,) * dimension)]
+    return best, fixed, list(seen.values())
+
+
+def parse_pm_opt_args(argv=None):
+    parser = argparse.ArgumentParser(description=__doc__,
+                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+    parser.add_argument("--optimize", action="store_true", help="Run parallel PM transmission optimization")
+    parser.add_argument("--distances", type=float, nargs="+", default=[0.0, 20.0, 40.0])
+    parser.add_argument("--M", type=int, default=4, help="Number of bases, including key basis")
+    parser.add_argument("--n-bar", type=float, default=0.01, help="Input intensity before trusted basis loss")
+    parser.add_argument("--tau-s", type=float, default=1e-8)
+    parser.add_argument("--c-max", type=int, default=1_000_000)
+    parser.add_argument("--n-plus", type=int, default=3)
+    parser.add_argument("--p-mon", type=float, default=0.99,
+                        help="Externally justified monitor-acceptance lower bound; 0.99 is placeholder")
+    parser.add_argument("--loss-only", action="store_true")
+    parser.add_argument("--lambda-min", type=float, default=0.05)
+    parser.add_argument("--samples", type=int, default=18, help="Global Latin-hypercube samples per distance")
+    parser.add_argument("--refine-rounds", type=int, default=5)
+    parser.add_argument("--workers", type=int, default=min(4, os.cpu_count() or 1))
+    parser.add_argument("--solver", choices=["auto", "mosek", "clarabel"], default="auto")
+    parser.add_argument("--seed", type=int, default=2026)
+    parser.add_argument("--output", type=Path, default=stage_results_dir("stage5a-PM") / "optimization-results.json")
+    parser.add_argument("--plot", action="store_true", help="Plot optimized and fixed profiles")
+    args = parser.parse_args(argv)
+    if not 2 <= args.M or not 0 <= args.lambda_min < 1:
+        parser.error("Require M >= 2 and 0 <= --lambda-min < 1")
+    if args.workers < 1 or args.samples < 0 or args.refine_rounds < 0:
+        parser.error("workers >= 1, samples >= 0 and refine-rounds >= 0 required")
+    if not 0 < args.p_mon <= 1 or not 0 <= args.tau_s <= 1 or args.n_bar <= 0:
+        parser.error("Invalid monitor or mean-energy parameters")
+    if any(d < 0 for d in args.distances):
+        parser.error("Distances must be nonnegative")
+    return args
+
+
+def main_optimize(argv=None):
+    args = parse_pm_opt_args(argv)
+    config = {"M": args.M, "n_bar": args.n_bar, "tau_s": args.tau_s,
+              "c_max": args.c_max, "n_plus": args.n_plus, "p_mon": args.p_mon,
+              "loss_only": args.loss_only, "lambda_min": args.lambda_min,
+              "solver": args.solver}
+    rng = random.Random(args.seed)
+    data = {"config": {**config, "distances_km": args.distances, "samples": args.samples,
+                       "refine_rounds": args.refine_rounds, "workers": args.workers,
+                       "seed": args.seed},
+            "warning": "Synthetic coherent-reference benchmark; p_mon is externally supplied. "
+                       "A numerical SDP optimum is not a rigorous dual certificate. "
+                       "Parallel search is heuristic, not globally optimal.",
+            "best_by_distance": [], "evaluations": []}
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    print("Optimizing Stage 5A--PM test transmissions (lambda_0=1; key unchanged).", flush=True)
+    print("WARNING: coherent-reference synthetic statistics and illustrative acceptance bound.", flush=True)
+    plot_rows = []
+    # Spawn clean worker interpreters rather than forking CVXPY's initialized
+    # BLAS state. Child processes see these limits before importing NumPy.
+    for variable in ("OPENBLAS_NUM_THREADS", "MKL_NUM_THREADS",
+                     "OMP_NUM_THREADS", "NUMEXPR_NUM_THREADS"):
+        os.environ[variable] = "1"
+    with ProcessPoolExecutor(
+        max_workers=args.workers, mp_context=get_context("spawn")
+    ) as pool:
+        for distance in args.distances:
+            best, fixed, evaluated = optimize_distance(
+                pool, distance, config, random_samples=args.samples,
+                refine_rounds=args.refine_rounds, rng=rng,
+            )
+            data["evaluations"].extend(evaluated)
+            data["best_by_distance"].append({"distance_km": distance, "optimized": best,
+                                             "fixed": fixed, "n_evaluated": len(evaluated)})
+            for name, record in (("fixed (Stage5A)", fixed), ("optimized basis-loss PM", best)):
+                plot_rows.append({"profile": name, "L_km": distance,
+                                  "e_ph": record["e_ph"], "R_original": record.get("R_original")})
+            print(f"{distance:g} km: {len(evaluated)} evaluations; fixed R_acc={fixed.get('R_acc')}; "
+                  f"best R_acc={best['R_acc']:.6g}, e_ph={best['e_ph']:.6g}, "
+                  f"lambda={best['lambda_by_basis']}", flush=True)
+            # Checkpoint completed distances even if a later distance fails.
+            args.output.write_text(json.dumps(data, indent=2, allow_nan=False) + "\n")
+    if args.plot:
+        plot_pm_profiles(plot_rows, output_dir=stage_results_dir("stage5a-PM"), filename_prefix="pm-optimized")
+    print(f"Saved {args.output}")
+
+
+
+
+
+
+def main_profiles() -> None:
     check_pm_kernel_identities()
     print("Kernel and synthetic-statistics unit-limit checks: PASS")
     M=4
@@ -770,3 +1004,11 @@ if __name__=="__main__":
         ))
     report(rows,stage="stage5a-PM")
     plot_pm_profiles(results)
+
+
+if __name__ == "__main__":
+    if "--optimize" in sys.argv[1:]:
+        check_pm_kernel_identities()
+        main_optimize(sys.argv[1:])
+    else:
+        main_profiles()

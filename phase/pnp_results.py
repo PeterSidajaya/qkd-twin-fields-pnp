@@ -98,11 +98,18 @@ def print_table(rows):
         print("  ".join(_pretty(row.get(key),width) for key,width in columns), flush=True)
 
 
+def stage_results_dir(stage: str) -> Path:
+    """Shared destination for all stage-specific data and figures."""
+    if not stage or "/" in stage or "\\" in stage or stage in (".", ".."):
+        raise ValueError("stage must be a single directory name")
+    return Path(__file__).resolve().parent / "results" / stage
+
+
 def write_outputs(rows, *, stage, base_dir=None, plot=True):
     if not rows:
         raise ValueError("No result rows to export.")
     if base_dir is None:
-        base_dir = Path(__file__).resolve().parent/"results"/stage
+        base_dir = stage_results_dir(stage)
     folder = Path(base_dir)
     folder.mkdir(parents=True, exist_ok=True)
     csv_path = folder/"results.csv"
