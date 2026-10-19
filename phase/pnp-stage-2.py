@@ -74,6 +74,9 @@ photon number.
 """
 
 import numpy as np
+
+import pnp_benchmark as benchmark
+from pnp_results import result_row, report
 import cvxpy as cp
 import math
 from scipy.stats import binom
@@ -148,19 +151,10 @@ def h2(e):
 def solve(M, n_bar, L, t2):
     phases = state_phases(M)
     NS = 4 * M
-    eta = ETA_DET * 10 ** (-XI * L / 10.0)
-    p_dc = 0.0 if LOSS_ONLY else P_DC
-    e_ali = 0.0 if LOSS_ONLY else E_ALI
-    P_sig = 1.0 - np.exp(-eta * n_bar)
-    P_pass = P_sig + p_dc
-    e_obs = (e_ali * P_sig + 0.5 * p_dc) / P_pass
-
-    P_plus = np.zeros(NS); P_minus = np.zeros(NS)
-    for s in range(NS):
-        hit, miss = (1 - e_obs) * P_pass, e_obs * P_pass
-        P_plus[s], P_minus[s] = (hit, miss) if (s % 4) in (0, 3) else (miss, hit)
-    P_fail = 1.0 - P_plus - P_minus
-    prob_of = {Z_P: P_plus, Z_M: P_minus, Z_F: P_fail}
+    prob_of, P_pass, e_obs = benchmark.coherent_reference_probabilities(
+        M, n_bar, L, eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
 
     active = [(z, s) for z in (Z_P, Z_M, Z_F) for s in range(NS)
               if prob_of[z][s] > 1e-12]
@@ -341,14 +335,23 @@ if __name__ == "__main__":
     # for NIN in MONO_N_IN:
     #     src = open(__file__).read().replace(f"N_IN = {N_IN}", f"N_IN = {NIN}", 1)
     #     tmp = f"_mono_{NIN}.py"
-    #     open(tmp, "w").write(src.split('if __name__ == "__main__":')[0])
-    #     spec = __import__("importlib.util", fromlist=["util"]).spec_from_file_location(
-    #         f"m{NIN}", tmp)
-    #     mod = __import__("importlib.util", fromlist=["util"]).module_from_spec(spec)
-    #     spec.loader.exec_module(mod)
-    #     e, _, _, st, pv, _ = mod.solve(M, n_bar, L, t2)
-    #     bad = "" if prev is None or e <= prev + 1e-6 else "   VIOLATED"
-    #     print(f"  N_IN={NIN:4d}  e_ph={e:.4f}  eps_in={1-pv.sum():.3e}  "
-    #           f"{st}{bad}", flush=True)
-    #     prev = e
-    #     os.remove(tmp)
+    #     open(tmp, "w").write(src.split('if __name__ == "__main__":
+    n_bar = 0.005
+    rows = []
+    for L in (2.0,):
+        for t2 in (0.1,):
+            e_ph,e_bit,P_pass,status,pv,qv=solve(M,n_bar,L,t2)
+            ok=status in ("optimal","optimal_inaccurate")
+            R=P_pass*max(0.0,1-h2(e_ph)-F_EC*h2(e_bit)) if ok else None
+            eps=(1-float(np.sum(pv))) if pv is not None else None
+            rows.append(result_row(
+                "stage2",f"t2={t2:g}",L,M=M,n_bar=n_bar,
+                e_ph_upper=e_ph if ok else None,e_bit=e_bit,
+                P_pass_cond=P_pass,R_acc=R,status=status,
+                epsilon_tail=eps,tail_kind="input Fock truncation",
+                P_monitor_scope="none",
+                phase_bound_scope="legacy e_ph<=1/2 imposed in SDP",
+                parameters={"t2":t2,"N_IN":N_IN,"N_OUT":N_OUT},
+                notes="Physical attenuation kernel; historical e_ph<=1/2 constraint requires separate justification.",
+            ))
+    report(rows,stage="stage2")
