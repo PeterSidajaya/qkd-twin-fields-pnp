@@ -21,7 +21,13 @@ Stage 5A additionally writes stage5a-rate-vs-plob.png. This compares
 R_acc) with the repeaterless pure-loss PLOB reference
 K(eta)=-log2(1-eta), eta=10**(-0.2*L_km/10), where L_km is the total
 Alice-Bob distance. The PLOB curve starts at L>0 because it diverges at
-zero distance. Its units are bits per end-to-end channel use, so this
+zero distance. The same figure now has a second, aligned panel plotting
+the effective loss exponent kappa = d log(R_original)/d log(eta_total)
+estimated by finite differences between adjacent usable distances. Only
+runs with solver status 'optimal' are used for extracting protocol slopes.
+It overlays the exact local PLOB exponent and reference kappa=1/2 for
+square-root scaling (and kappa=1, the high-loss PLOB limit).
+These finite-distance slopes do not establish an asymptotic scaling law. Its units are bits per end-to-end channel use, so this
 overlay is a visual reference only: protocol resource accounting, physical
 monitor acceptance and observed statistics must be justified before
 claiming any PLOB violation.
