@@ -1764,7 +1764,7 @@ def plot_ideal_benchmark_scan(results, output_dir=None):
         )
     ax_kappa.axhline(
         0.5, color="gray", linestyle=":", linewidth=1.7,
-        label=r"Ideal $R\\propto\\sqrt{\\eta}$ exponent = 1/2",
+        label=r"Ideal $R\propto\sqrt{\eta}$ exponent = 1/2",
     )
     ax_kappa.axhline(
         1.0, color="gray", linestyle="-.", linewidth=1.1,
@@ -1778,7 +1778,7 @@ def plot_ideal_benchmark_scan(results, output_dir=None):
         ax.legend(fontsize=7)
 
     ax_kappa.set_xlabel("Total Alice-Bob fiber distance (km)")
-    ax_kappa.set_ylabel(r"Effective exponent $d\\log R/d\\log\\eta$")
+    ax_kappa.set_ylabel(r"Effective exponent $d\log R/d\log\eta$")
     ax_kappa.grid(True, alpha=0.25)
     ax_kappa.legend(fontsize=7)
     fig.tight_layout()
