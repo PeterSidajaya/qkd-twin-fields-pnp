@@ -3617,6 +3617,154 @@ physical response model.  The preliminary script
 response functions but has not yet been promoted to the final realistic
 detector calculation.
 
+
+\subsection{Stage 5A--PM: basis-dependent trusted loss for phase-matching test states}
+\label{sec:stage5a-pm}
+
+The monitor-to-accepted-Fock interface of Stage~5A does not require the
+subsequent encoding to be a phase shift alone.  We can retain the same
+joint PNA--BS instrument and introduce a \emph{trusted,
+basis-dependent pure-loss element} after monitor acceptance and before
+phase encoding.  This provides a plug-and-play analogue of the
+basis-dependent test-state intensities in phase-matching MDI-QKD.
+Unlike the locally prepared coherent states of
+Primaatmaja \emph{et al.}, however, the incoming and surviving states here
+remain entirely untrusted; a setting \(\lambda_{X,x}\) fixes a local
+transmissivity, \emph{not} an output coherent-state intensity.
+
+\paragraph{Assumptions and order of operations.}
+The PNA acceptance event \(A_{\rm mon}\) is decided before the private
+basis and bit settings are applied.  The accepted state on the two
+signal modes and Eve's pre-existing purifying system is common to all
+settings, and its photon-number diagonal is
+\(q_{n_A,n_B}^{\rm acc}\).  For each party \(X=A,B\), basis \(x\) selects
+a calibrated pure-loss transmissivity
+\(0\le\lambda_{X,x}\le1\), independent of the bit in that basis,
+followed by the phase
+\[
+  \phi_{X,(x,a)}=\theta_{X,x}+\pi a,\qquad a\in\{0,1\}.
+\]
+The loss-port input is vacuum and the pure-loss dilation has no
+additional setting-dependent side channel.  We may conservatively give
+its output environment to Eve.  These assumptions are distinct from
+allowing Eve to select the incoming source: Eve remains free to
+prepare an arbitrary state, including correlations between both
+parties and her quantum memory.
+
+\paragraph{Overlap for one photon-number component.}
+Let \(V_s\) denote the trusted loss isometry and subsequent phase
+shift for encoding label \(s\).  In the common transmitted/loss
+output spaces its action on a Fock state is
+\begin{equation}
+  V_s|n\rangle
+  =
+  \sum_{k=0}^{n}\sqrt{\binom nk}
+  \lambda_s^{k/2}(1-\lambda_s)^{(n-k)/2}
+  e^{ik\phi_s}
+  |k\rangle_S|n-k\rangle_L .
+  \label{eq:stage5a-pm-isometry}
+\end{equation}
+The overlap for two settings \(s,t\) is
+\begin{align}
+  \langle n|V_s^\dagger V_t|n\rangle
+  &=
+  \sum_{k=0}^{n}\binom nk
+  (\sqrt{\lambda_s\lambda_t})^k
+  \bigl(\sqrt{(1-\lambda_s)(1-\lambda_t)}\bigr)^{n-k}
+  e^{ik(\phi_t-\phi_s)}
+  \notag\\
+  &=\bigl[
+  \sqrt{(1-\lambda_s)(1-\lambda_t)}
+  +\sqrt{\lambda_s\lambda_t}\,
+    e^{i(\phi_t-\phi_s)}
+  \bigr]^n.
+  \label{eq:stage5a-pm-kernel}
+\end{align}
+Orthogonality of the transmitted and lost Fock-number labels also
+gives \(\langle n|V_s^\dagger V_t|n'\rangle=0\) for \(n\ne n'\).
+Consequently the input's Fock coherences do not appear in these
+overlaps, even if the untrusted source is entangled with Eve.
+Define
+\begin{equation}
+  h_X^{st}:=
+  \sqrt{(1-\lambda_{X,s})(1-\lambda_{X,t})}
+  +\sqrt{\lambda_{X,s}\lambda_{X,t}}\,
+     e^{i(\phi_{X,t}-\phi_{X,s})},
+  \qquad |h_X^{st}|\le1 .
+  \label{eq:stage5a-pm-h}
+\end{equation}
+Here \(\lambda_{X,s}:=\lambda_{X,x(s)}\), the bit-independent
+transmissivity selected by the basis of label \(s\).
+By tensoring the two trusted local encoders, the \emph{exact}
+accepted-state overlap for an arbitrary joint untrusted source is
+\begin{equation}
+  \boxed{
+  \Lambda_{st}^{\rm PM}
+  =
+  \sum_{n_A,n_B\ge0}
+  q_{n_A,n_B}^{\rm acc}
+  (h_A^{st})^{n_A}(h_B^{st})^{n_B}.
+  }
+  \label{eq:stage5a-pm-exact-overlap}
+\end{equation}
+The accepted PNA--BS distribution is still determined \emph{before}
+the additional loss, so the existing source-independent
+\(H_m,\delta,\epsilon_5,B_n\) and two-arm marginal/joint occupancy
+constraints remain valid without modification.
+
+\paragraph{Finite Gram outer relaxation.}
+Decompose \(q^{\rm acc}=q^{\rm good}+q^{\rm bad}\), as in
+Eq.~\eqref{eq:stage5a-good-bad}, with
+\(\sum q^{\rm bad}=\beta\le\epsilon_5\).
+Replace the good-region overlap in
+Eq.~\eqref{eq:stage5a-final-sdp} by
+\begin{equation}
+  \Lambda_{st}^{\rm PM,good}(q)
+  =
+  \sum_{(n_A,n_B)\in\mathcal N_+}
+  q_{n_A,n_B}
+  (h_A^{st})^{n_A}(h_B^{st})^{n_B}.
+  \label{eq:stage5a-pm-good-overlap}
+\end{equation}
+Since \(|h_X^{st}|\le1\), the omitted tail has modulus at most
+\(\beta\).  Thus the replacement Gram constraint is
+\begin{equation}
+  \boxed{
+  \left|\Gamma_{st}(G)-\Lambda_{st}^{\rm PM,good}(q)\right|
+  \le\beta,\qquad s<t .
+  }
+  \label{eq:stage5a-pm-gram-soc}
+\end{equation}
+The original Stage-5A normalization, tail, occupancy, Gram-PSD,
+observed-diagonal, and A7 objective constraints are unchanged.
+In particular, Eq.~\eqref{eq:stage5a-pm-good-overlap} is affine in the
+unknown \(q\), and the new problem remains SDP/SOCP-representable.
+The four key-basis states use the same chosen key-basis attenuation,
+and their observed \(P_{\rm pass|mon}\) and \(e_{\rm bit}\) still
+determine the key-rate prefactor.  The \emph{test-basis} observed
+probabilities \(P(z\mid s,A_{\rm mon})\) must, however, correspond to
+their actual basis-dependent transmissivities: it is not consistent
+to reuse a basis-independent synthetic channel model without this
+adjustment.  As before, the resulting finite SDP is a conservative
+outer relaxation of the exact common PNA--BS image.
+
+\paragraph{Special cases and scope.}
+If every \(\lambda_{X,x}=1\), the kernel reduces to the original
+Stage-5A phase factor
+\(h_X^{st}=e^{i(\phi_{X,t}-\phi_{X,s})}\).
+If every \(\lambda_{X,x}=\lambda_X\), then
+\(h_X^{st}=1-\lambda_X+\lambda_Xe^{i\Delta\phi_X^{st}}\),
+which reproduces the \emph{exact finite-loss kernel} of Stage~5B;
+the separate Stage-5B continuum discretization is not needed when
+the finite post-PNA Fock cutoff is already tractable.
+Basis-dependent \(\lambda_{X,x}\) produces the proposed PnP
+phase-matching extension, but does not prepare a known
+coherent state of intensity \(\mu_x\).  Numerical gains, including
+any claimed rate-distance advantage or PLOB-bound violation,
+must be demonstrated separately with compatible
+setting-dependent statistics, a justified monitor-acceptance
+probability, and the appropriate physical channel-use accounting.
+
 \subsection{Stage 5B: PNA--beam splitter plus additional trusted attenuation}
 \label{sec:stage5b}
 
