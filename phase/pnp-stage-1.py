@@ -53,6 +53,9 @@ not incidental to that protocol:
 """
 
 import numpy as np
+
+import pnp_benchmark as benchmark
+from pnp_results import result_row, report
 import cvxpy as cp
 import math
 
@@ -110,16 +113,13 @@ def h2(e):
     return -e * math.log2(e) - (1 - e) * math.log2(1 - e)
 
 
-def channel(n_bar, L):
-    """Honest channel: total click rate and error rate."""
-    eta = ETA_DET * 10 ** (-XI * L / 10.0)
-    p_dc = 0.0 if LOSS_ONLY else P_DC
-    e_ali = 0.0 if LOSS_ONLY else E_ALI
-    P_sig = 1.0 - np.exp(-eta * n_bar)
-    P_pass = P_sig + p_dc
-    e_obs = (e_ali * P_sig + 0.5 * p_dc) / P_pass
-    return P_pass, e_obs
-
+def channel(n_bar, L, M_scan=None):
+    """Shared synthetic coherent reference; L is TOTAL Alice-Bob km."""
+    _, p_pass, e_obs = benchmark.coherent_reference_probabilities(
+        M if M_scan is None else M_scan, n_bar, L, eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
+    return p_pass, e_obs
 
 def coherent_p(n_bar):
     """Fock weights of a coherent source with n_bar/2 mean photons per arm."""
@@ -139,22 +139,10 @@ def coherent_p(n_bar):
 def solve_eph(M, n_bar, L, solver=None, solver_opts=None):
     phases = state_phases(M)
     NS = 4 * M
-    P_pass, e_obs = channel(n_bar, L)
-
-    # Observed per-state detector statistics.
-    #
-    # enc 0 and 3 have phi_A - phi_B = 0, so Psi+ is the expected outcome and
-    # Psi- is an error; enc 1 and 2 are the reverse. Imposing both diagonals
-    # per state is the full distribution Alice and Bob see, and is tighter
-    # than constraining only the total click rate and an averaged QBER.
-    P_plus = np.zeros(NS)
-    P_minus = np.zeros(NS)
-    for s in range(NS):
-        expects_plus = (s % 4) in (0, 3)
-        hit, miss = (1.0 - e_obs) * P_pass, e_obs * P_pass
-        P_plus[s], P_minus[s] = (hit, miss) if expects_plus else (miss, hit)
-    P_fail = 1.0 - P_plus - P_minus
-    prob_of = {Z_P: P_plus, Z_M: P_minus, Z_F: P_fail}
+    prob_of, P_pass, e_obs = benchmark.coherent_reference_probabilities(
+        M, n_bar, L, eta_det=ETA_DET, fiber_loss_db_per_km=XI,
+        p_dc=P_DC, e_ali=E_ALI, loss_only=LOSS_ONLY,
+    )
 
     # Zero-norm reduction (see module docstring).
     TOL = 1e-12
@@ -299,15 +287,19 @@ def key_rate(M, n_bar, L):
 
 if __name__ == "__main__":
     n_bar = 0.01
-
-    print(f"M = {M} ({2*(M-1)} test states)   N_MAX = {N_MAX}   "
-          f"n_bar = {n_bar}   source = {SOURCE}   "
-          f"{'loss only' if LOSS_ONLY else 'with noise'}")
-    print(f"{'L(km)':>7} {'e_ph':>8} {'e_bit':>8} {'P_pass':>11} "
-          f"{'R':>11} {'eps':>10}  status")
-
+    rows = []
     for L in (0.0, 2.0, 5.0, 10.0, 20.0):
         R, e_ph, e_bit, P_pass, status, p_val = key_rate(M, n_bar, L)
-        eps = 1.0 - float(np.sum(p_val)) if p_val is not None else float("nan")
-        print(f"{L:7.1f} {e_ph:8.4f} {e_bit:8.4f} {P_pass:11.3e} "
-              f"{R:11.3e} {eps:10.3e}  {status}", flush=True)
+        ok = status in ("optimal", "optimal_inaccurate")
+        eps = (1.0-float(np.sum(p_val))) if p_val is not None else None
+        rows.append(result_row(
+            "stage1", SOURCE, L, M=M, n_bar=n_bar,
+            e_ph_upper=e_ph if ok else None, e_bit=e_bit,
+            P_pass_cond=P_pass, R_acc=R if ok else None, status=status,
+            epsilon_tail=eps, tail_kind="source Fock truncation",
+            phase_bound_scope="legacy e_ph<=1/2 imposed in SDP",
+            P_monitor_scope="none",
+            parameters={"N_MAX":N_MAX,"source":SOURCE},
+            notes="Mean-only source benchmark; historical e_ph<=1/2 constraint is not justified as WLOG.",
+        ))
+    report(rows,stage="stage1")
