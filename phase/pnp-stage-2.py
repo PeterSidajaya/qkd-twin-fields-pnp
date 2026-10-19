@@ -81,7 +81,7 @@ import cvxpy as cp
 import math
 from scipy.stats import binom
 
-M = 5
+M = 4
 N_OUT = 7                # diagnostics only now; not in any constraint
 N_IN = 120
 F_EC = 1.15
@@ -297,7 +297,7 @@ def eps_in_bound(n_bar, t2, N_IN):
 
 
 if __name__ == "__main__":
-    n_bar = 0.005
+    n_bar = 0.01
     rows = []
     for L in (2.0,):
         for t2 in (0.1,):
