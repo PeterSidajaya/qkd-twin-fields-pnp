@@ -106,6 +106,28 @@ class TestUnifiedPnPOutput(unittest.TestCase):
         with self.assertRaises(ValueError):
             self.s5.plob_direct_link_bound(-1.0)
 
+    def test_stage5a_loss_exponents(self):
+        # A synthetic square-root-scaling curve has exponent 1/2
+        # regardless of normalization and distance-step size.
+        Ls = [0.0, 2.0, 5.0, 20.0, 40.0]
+        points = [
+            (L, 0.01 * (10 ** (-self.s5.XI * L / 10)) ** 0.5)
+            for L in Ls
+        ]
+        midpoint, exponent = self.s5.local_loss_exponents(points)
+        self.assertEqual(len(midpoint), len(Ls) - 1)
+        self.assertTrue(np.allclose(exponent, 0.5, atol=1e-12))
+        self.assertAlmostEqual(
+            self.s5.plob_loss_exponent(40.0),
+            (10 ** (-self.s5.XI * 40.0 / 10)) / (
+                (1.0 - 10 ** (-self.s5.XI * 40.0 / 10)) *
+                (-np.log1p(-10 ** (-self.s5.XI * 40.0 / 10)))
+            ),
+            places=12,
+        )
+        self.assertGreater(self.s5.plob_loss_exponent(20.0), 1.0)
+        self.assertEqual(self.s5.plob_loss_exponent(0.0), float("inf"))
+
     def test_pm_plot_filename_prefix_prevents_overwriting(self):
         sample = [
             dict(profile="fixed (Stage5A)", L_km=0.0,
