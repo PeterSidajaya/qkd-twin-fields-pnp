@@ -39,6 +39,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Sequence
 
+import pnp_benchmark as benchmark
+from pnp_results import result_row, report
+
 import cvxpy as cp
 import matplotlib.pyplot as plt
 import numpy as np
@@ -180,6 +183,17 @@ def check_pm_kernel_identities() -> None:
     for s,t in pairs:
         ks = pm_overlap_kernel(varied, [(s,t),(t,s)], supp)
         assert np.allclose(ks[1],np.conjugate(ks[0]),atol=2e-14)
+    # Shared observed-statistics regression: fixed PM and Stage5A are
+    # exactly the same coherent-reference detection benchmark.
+    for length in (0.0, 20.0):
+        actual=pm_synthetic_announcement_probabilities(
+            fixed,0.01,length,loss_only=False
+        )
+        expected,_,_=S5.synthetic_announcement_probabilities(M,0.01,length)
+        for z in Z_ALL:
+            assert np.allclose(actual[z],expected[z],rtol=0,atol=1e-15), (
+                "PM lambda=1 must reproduce Stage5A detector statistics"
+            )
     for n in range(5):
         ls,lt,delta = 0.2,0.75,0.43
         h = one_arm_pm_factor(0.0,delta,ls,lt)
@@ -198,44 +212,25 @@ def pm_synthetic_announcement_probabilities(
     distance_km: float,
     *,
     loss_only: bool = False,
-) -> dict[int,np.ndarray]:
+) -> dict[int, np.ndarray]:
     """
-    Coherent-reference click probabilities after basis-dependent attenuation.
-
-    The nominal accepted pre-loss signal has independent equal-amplitude
-    coherent modes, with joint mean n_bar_before_loss.  For each label, first
-    apply the trusted loss, then relative phase shift and interfere at an
-    ideal 50:50 central splitter.  Detector clicks are independent Poisson
-    on/off events with dark count P_DC; e_ali is a visibility surrogate.
-
-    A model for the accepted ENSEMBLE only: it does not imply the observed
-    monitor acceptance probability, nor that the unknown actual source is
-    coherent. For numerical studies the setting-dependent probabilities
-    should be replaced by measured P(z | s, A_mon).
-    distance_km is the TOTAL Alice-to-Bob fiber distance, with Charlie
-    halfway; per-arm transmission is 10**(-XI*distance_km/20).
+    Same coherent-reference two-arm detector model as Stage 5A.
+    Only the basis-dependent trusted attenuation and phase settings differ.
+    Consequently the PM lambda_x=1 baseline MUST reproduce the Stage5A
+    synthetic probabilities and SDP (same monitor parameters/cutoff).
     """
-    if n_bar_before_loss < 0 or distance_km < 0:
-        raise ValueError("n_bar and distance must be nonnegative")
-    M = len(settings)
-    validate_pm_settings(settings, M)
-    states = pm_state_labels(settings)
-    eta = S5.ETA_DET * 10.0**(-S5.XI * distance_km / 20.0)
-    p_dc = 0.0 if loss_only else S5.P_DC
-    visibility = 1.0 if loss_only else 1.0 - 2.0*S5.E_ALI
-    ns = 4*M
-    p_plus,p_minus = np.zeros(ns),np.zeros(ns)
-    for s,(phi_a,phi_b,la,lb) in enumerate(states):
-        mean_a = eta * n_bar_before_loss * la / 2.0
-        mean_b = eta * n_bar_before_loss * lb / 2.0
-        cross = visibility * np.sqrt(mean_a*mean_b) * np.cos(phi_a-phi_b)
-        mean_plus = max(0.0, (mean_a+mean_b)/2.0+cross)
-        mean_minus = max(0.0, (mean_a+mean_b)/2.0-cross)
-        # Exactly one threshold detector clicks.
-        p_plus[s] = -np.expm1(-(mean_plus+p_dc)) * np.exp(-(mean_minus+p_dc))
-        p_minus[s] = -np.expm1(-(mean_minus+p_dc)) * np.exp(-(mean_plus+p_dc))
-    p_fail = 1.0-p_plus-p_minus
-    return {Z_P:p_plus,Z_M:p_minus,Z_F:p_fail}
+    M=len(settings)
+    validate_pm_settings(settings,M)
+    observed,_,_=benchmark.coherent_reference_probabilities(
+        M,n_bar_before_loss,distance_km,
+        lambda_a=[s.lambda_a for s in settings],
+        lambda_b=[s.lambda_b for s in settings],
+        theta_a=[s.theta_a for s in settings],
+        theta_b=[s.theta_b for s in settings],
+        eta_det=S5.ETA_DET,fiber_loss_db_per_km=S5.XI,
+        p_dc=S5.P_DC,e_ali=S5.E_ALI,loss_only=loss_only,
+    )
+    return observed
 
 
 def solve_stage5a_pm_sdp(
@@ -672,16 +667,10 @@ def scan_pm_profiles(
                 p_pass=result.p_pass_mon,
                 R_acc=result.r_acc,R_original=result.r_original,
                 epsilon_5=interface.epsilon_5,
+                beta=result.diagnostics.get("beta"),
+                N_plus=n_plus,
                 status=result.status,
             ))
-            print(
-                f"{name:<16} L={distance:5.1f} km "
-                f"e_ph={result.e_ph_upper:.6f} "
-                f"e_bit={result.e_bit:.6f} "
-                f"R_acc={result.r_acc:.5e} "
-                f"status={result.status}",
-                flush=True,
-            )
     return output
 
 
@@ -744,4 +733,40 @@ def main() -> None:
 
 
 if __name__=="__main__":
-    main()
+    check_pm_kernel_identities()
+    print("Kernel and synthetic-statistics unit-limit checks: PASS")
+    M=4
+    profiles={
+        "fixed (Stage5A)":make_pm_settings([1.0]*M),
+        "basis-loss PM":make_pm_settings([1.0,0.8,0.5,0.2]),
+    }
+    n_bar=0.01
+    n_plus=3
+    p_mon=0.99  # illustrative, NOT physically derived/verified
+    results=scan_pm_profiles(
+        profiles=profiles,
+        distances_km=S5.DISTANCES_KM,
+        n_bar_before_loss=n_bar,
+        tau_s=1e-8,c_max=1_000_000,
+        n_plus=n_plus,p_mon_both_lower=p_mon,
+    )
+    rows=[]
+    for r in results:
+        chosen=profiles[r["profile"]]
+        rows.append(result_row(
+            "stage5a-PM",r["profile"],r["L_km"],
+            M=M,n_bar=n_bar,e_ph_upper=r["e_ph"],
+            e_bit=r["e_bit"],P_pass_cond=r["p_pass"],
+            R_acc=r["R_acc"],R_original=r["R_original"],
+            status=r["status"],P_monitor=p_mon,
+            P_monitor_scope="illustrative lower bound",
+            epsilon_tail=r["epsilon_5"],beta=r["beta"],
+            tail_kind="PNA-certified conditional surviving-Fock tail",
+            phase_bound_scope="unrestricted e_ph SDP; conservative entropy when >=1/2",
+            parameters={"N_plus":n_plus,"tau_s":1e-8,"c_max":1_000_000,
+                       "lambda_a":[s.lambda_a for s in chosen],
+                       "lambda_b":[s.lambda_b for s in chosen]},
+            notes="PM basis-dependent post-monitor pure loss; coherent-reference stats; P_monitor=0.99 placeholder.",
+        ))
+    report(rows,stage="stage5a-PM")
+    plot_pm_profiles(results)
