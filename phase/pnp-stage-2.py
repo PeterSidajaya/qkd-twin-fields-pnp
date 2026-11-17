@@ -1,76 +1,73 @@
 """
-Does modelling the attenuation at Alice's and Bob's side as a beamsplitter
-change anything?
+Stage-2 plug-and-play phase-error SDP: trusted attenuation before encoding.
 
-Claim under test: the SDP survives. Section V of arXiv:2012.11104 says the
-channel-discrimination optimisation can no longer be cast as an SDP once
-losses make the arriving state mixed, because Gram matrices need pure states
-and the eigenbasis of the mixed state is not the Fock basis.
+Physical ordering (per arm)
+---------------------------
+    arbitrary untrusted optical input, possibly entangled with Eve's E0
+        -> trusted pure-loss attenuator with transmissivity tau = t^2
+        -> reflected loss port L securely discarded inside the lab
+        -> secret phase encoding U_s on the surviving signal T
+        -> untrusted measurement node.
 
-That obstruction does not apply here, because the loss channel is phase
-covariant:
+This is the intended implementation.  It is NOT a phase-encoded input
+subsequently attenuated with the modulated reflected light sent to Eve.
 
-    L_t(exp(i theta n) rho exp(-i theta n))
-        = exp(i theta n) L_t(rho) exp(-i theta n)
-
-which follows from a^k exp(i theta n) = exp(-i k theta) exp(i theta n) a^k on
-the Kraus operators, and holds with any spectator system along for the ride.
-
-Setting it up correctly matters, and the obvious version is wrong. Do NOT
-purify by keeping the reflected port: the beamsplitter B is unitary and
-carries no dependence on the state index s, so
-
-    <Phi_s1|Phi_s2> = <Psi|<0| U_s1^dag B^dag B U_s2 |Psi>|0> = Lambda(p)
-
-and the attenuation buys nothing. That is correct physics for that
-formulation - keeping both output ports means nothing was lost.
-
-The right construction traces out the reflected modes first, which is what
-actually happens, and purifies afterwards with a fictitious reference.
-
-Eve holds a purification E0 of the light she sends, so the object is
-rho^{A B E0}. Alice and Bob modulate, then attenuate, then the reflected
-modes are discarded. Phase covariance survives the spectator E0, so
+Why a Gram SDP still works
+-------------------------
+The attenuator produces a mixed state rho_0^{T E0} when its reflected port is
+traced out.  The encoding is applied only afterwards:
 
     rho_s^{T E0} = W_s rho_0^{T E0} W_s^dag,
-    W_s = exp(i (phi^s_A n_TA + phi^s_B n_TB)) tensor 1_{E0}
+    W_s = exp(i [phi_A^s n_TA + phi_B^s n_TB]) tensor I_E0.
 
-with rho_0^{T E0} independent of s: every state is a phase rotation of ONE
-mixed state, which is exactly the structure Section V lacks. Purify that with
-a fictitious R', and |chi_s> = (W_s tensor 1_R') |chi> gives
+Thus all reduced encoded states lie on one known phase orbit, even for
+arbitrary input Fock coherences and entanglement with E0.  Choose one
+purification |chi_0> of rho_0^{T E0}, with a fictitious register R, and use
 
-    <chi_s1|chi_s2> = Tr[rho_0^{T E0} W_s1^dag W_s2]
-                    = Tr_T[rho_0^T exp(i dphi . n)]
-                    = sum_k q_k exp(i dphi k)
+    |chi_s> = (W_s tensor I_R)|chi_0>.
 
-with q the TRANSMITTED Fock distribution. Different purifications of the same
-rho^{A'B'TE0} agree on every marginal that matters, and e_ph is a property of
-Alice and Bob's marginal, so nothing is lost by working with |chi_s>.
+Its overlaps are determined by the post-attenuation photon-number
+distribution q:
 
-Eve's isometry acts on T and E0 with R' a spectator, so the isometry
-constraint sum_z <e^z_s1|e^z_s2> = Lambda(q) holds with the Gram vectors
-living in E_out tensor R'.
+    <chi_s|chi_t> = sum_n q_n exp(i Delta phi n),
 
-One caveat, worth being explicit about. Relaxing to any PSD Gram matrix on
-E_out tensor R' hands Eve R', which is morally the lost light. That is
-generous and therefore safe, but it means the gain here does NOT come from
-Eve being denied the reflected photons. It comes entirely from q being
-confined to the image of B_t, a genuine restriction on which Fock
-distributions can reach the node. "Attenuation hides information from Eve" is
-the intuitive story and it is not the one this proof uses.
+where for a single mode the binomial thinning map is
 
-So the only change is one linear map, their Eq. 43 in two modes:
+    q_n = sum_{m >= n} p_m C(m,n) tau^n (1-tau)^(m-n).
 
-    q_n = sum_{m >= n} p_m C(m,n) t^(2n) (1 - t^2)^(m-n)
+For two arms the corresponding phase overlap kernel in input variables is
 
-Truncation needs care. Alice monitors what LEAVES her lab, so the output
-energy is bounded by n_bar/2 per arm and the input by n_bar/(2 t^2), which
-grows as t falls. The input therefore needs a much larger grid than the
-output, and the energy relaxation must be applied on the input side, where
-"outside the grid" does imply m_A + m_B >= N_IN + 1. Applying it to the
-output would be unsound: the input tail produces output at every (a, b),
-including (0, 0), so the missing output mass is not concentrated at high
-photon number.
+    sum_{mA,mB} p_{mA,mB}
+      (1-tau+tau exp(i Delta phi_A))^mA
+      (1-tau+tau exp(i Delta phi_B))^mB.
+
+Pure loss is phase covariant: encoding before loss would yield the SAME
+reduced transmitted state if L is traced out.  This is an equivalence of
+reduced channels, not permission to reverse the physical ordering when
+discussing which reflected field Eve may access.
+
+In our attenuation-before-encoding ordering, the physical beam-splitter
+dilation itself supplies an example purification with R = L: the phase
+acts on T alone.  The actual Eve can act only on T E0; our Gram SDP
+retains positivity and overlap conservation but drops the restriction
+that Eve's physical instrument be K_z tensor I_R.  This is a conservative
+outer relaxation.  Even giving the unmodulated L to Eve in the ideal
+model leaves the same attenuated global overlaps.  In contrast, encoding
+BEFORE the splitter and giving the phase-modulated L to Eve restores the
+pre-loss overlaps Lambda(p); that is a different physical model.
+
+The advantage of attenuation in the SDP is that q is constrained to lie
+in the image of binomial thinning.  The proof does not assert that
+attenuation removes all information from Eve, nor does it require
+phase randomization.
+
+Truncation must be handled on the input photon-number distribution.  The
+monitored mean is defined for the signal LEAVING the lab, so each output
+arm has mean at most n_bar/2, corresponding to an input mean at most
+n_bar/(2 tau).  Input distributions can have an enormous Fock tail
+even when the delivered mean is small.  A cutoff on input total photon
+number admits a sound conservative tail charge, whereas directly
+truncating q would omit input-tail contributions to low output numbers.
 """
 
 import numpy as np
