@@ -67,10 +67,19 @@ result and Stage~5B is a good candidate for an appendix extension.
 \section{Protocol and security model}
 
 The central node is untrusted and supplies the optical pulses. Alice and Bob
-apply phase modulation and send the light back to the node for interference
-and detection. Eve is therefore allowed to control both the source and the
-measurement device; Alice and Bob trust only their local modulation,
-attenuation, and monitoring.
+apply trusted local optical processing and secret phase modulation, then send
+the surviving light back to the node for interference and detection. Eve is
+therefore allowed to control both the source and the measurement device;
+Alice and Bob trust only their local modulation, attenuation, and monitoring.
+
+The intended physical ordering is \emph{attenuation and/or trusted monitoring
+first, secret phase encoding afterwards}.  In Stage~2 the attenuator's
+reflected output is securely discarded inside the laboratory before the
+surviving light is modulated.  In Stage~5A the diverted output is measured
+destructively by a trusted PNA instead; Stage~5B additionally attenuates the
+accepted signal before encoding.  Equivalence under phase covariance refers
+to the \emph{reduced transmitted state} and must not be used to reverse the
+physical ordering when discussing access to the reflected port.
 
 The phase encoding uses \(M\) bases,
 \[
@@ -701,16 +710,45 @@ and \(E_0\) is retained by Eve.  Alice and Bob encode signal label \(s\) by
     =
     e^{i\phi_A^s\hat n_A+i\phi_B^s\hat n_B}.
 \]
-The actual physical order is
+The \emph{intended physical order} is attenuation first, secure disposal of
+the reflected light, and secret phase encoding only on the surviving modes:
 \[
-    |\Psi\rangle
-    \xrightarrow{U_s}
-    (U_s\otimes I_{E_0})|\Psi\rangle
+    |\Psi\rangle_{ABE_0}
     \xrightarrow{\mathcal L_\tau^A\otimes\mathcal L_\tau^B}
-    \rho_s^{TE_0},
+    \rho_0^{TE_0}
+    \xrightarrow{W_s}
+    \rho_s^{TE_0}.
 \]
-where \(T=(T_A,T_B)\) denotes the transmitted optical modes and the trusted
-reflected ports have been discarded.
+Here \(T=(T_A,T_B)\) denotes the transmitted optical modes; the reflected
+ports \(L_A,L_B\) of the trusted attenuators are terminated securely inside
+Alice's and Bob's laboratories \emph{before} the secret phase choice is
+applied.  In particular, these ports are not accessible to Eve in the
+intended hardware model.
+
+Define the post-attenuation, pre-encoding state
+\begin{equation}
+    \rho_0^{TE_0}
+    :=
+    \left(
+      \mathcal L_\tau^A\otimes\mathcal L_\tau^B\otimes I_{E_0}
+    \right)
+    \left(
+      |\Psi\rangle\!\langle\Psi|
+    \right).
+    \label{eq:stage2-base-mixed}
+\end{equation}
+Encoding acts only on the surviving modes:
+\begin{equation}
+    \rho_s^{TE_0}
+    =
+    W_s\rho_0^{TE_0}W_s^\dagger,
+    \qquad
+    W_s
+    =
+    e^{i\phi_A^s\hat n_{T_A}+i\phi_B^s\hat n_{T_B}}
+    \otimes I_{E_0}.
+    \label{eq:stage2-unitary-orbit}
+\end{equation}
 
 Pure loss is phase covariant:
 \begin{equation}
@@ -724,31 +762,12 @@ Pure loss is phase covariant:
     e^{-i\theta\hat n}.
     \label{eq:stage2-covariance}
 \end{equation}
-Hence we may equivalently regard loss as occurring before the phase rotation.
-Define
-\begin{equation}
-    \rho_0^{TE_0}
-    :=
-    \left(
-      \mathcal L_\tau^A\otimes\mathcal L_\tau^B\otimes I_{E_0}
-    \right)
-    \left(
-      |\Psi\rangle\!\langle\Psi|
-    \right).
-    \label{eq:stage2-base-mixed}
-\end{equation}
-Then every encoded state returned to the untrusted node satisfies
-\begin{equation}
-    \rho_s^{TE_0}
-    =
-    W_s\rho_0^{TE_0}W_s^\dagger,
-    \qquad
-    W_s
-    =
-    e^{i\phi_A^s\hat n_{T_A}+i\phi_B^s\hat n_{T_B}}
-    \otimes I_{E_0}.
-    \label{eq:stage2-unitary-orbit}
-\end{equation}
+Therefore, if the reflected ports are traced out, encoding before loss
+would give the \emph{same reduced state} \(\rho_s^{TE_0}\).  This covariance
+identity is only a mathematical equivalence of the reduced channel outputs;
+it does not make the two physical orderings interchangeable if the
+reflected ports are available to Eve.  We use attenuation before encoding
+throughout the intended physical model.
 
 Thus the family is not an arbitrary collection of mixed states: it is one
 mixed state acted on by a known representation of the phase group.
@@ -886,13 +905,18 @@ Thus the common-purification construction is used as a conservative
 \emph{outer relaxation}; it need not reproduce Eve's exact physical
 information.
 
-\begin{remark}[Why keeping the physical reflected port is not useful here]
-If the trusted reflected loss ports are retained, the beamsplitter dilation of
-loss is unitary and independent of \(s\).  The global overlaps are then just
-the pre-loss overlaps, so attenuation produces no new overlap constraint.
-The useful construction is to trace out the trusted loss ports first, obtaining
-the physical mixed transmitted state, and only then introduce a mathematical
-purification of that reduced state.
+\begin{remark}[Reflected-port access and the ordering of operations]
+The physical setup securely discards the reflected ports before the secret
+encoding.  In the ideal pre-encoding beam-splitter model, even a hypothetical
+Eve who received the unmodulated reflected ports would see a global family
+generated by \(W_s\) on the \emph{transmitted} modes alone, and the
+overlaps would still equal \(\Lambda^{(\tau)}_{st}\).  Thus the existing Gram
+constraints also conservatively cover that idealized leakage variant,
+provided no other encoding-dependent light leaks out.  By contrast,
+\emph{encoding before loss} and then handing the reflected ports to Eve
+restores the pre-loss overlaps, for which the attenuated kernel would not
+be valid.  The appendix explains the difference.  Secure disposal remains
+our intended hardware assumption, independently of this stronger bound.
 \end{remark}
 
 \subsection{Exact binomial-thinning kernel}
@@ -4371,9 +4395,11 @@ derivation:
 \begin{enumerate}
     \item mixed states are not by themselves an obstruction to a Gram
     construction; the useful extra structure is a known common unitary orbit;
-    \item the auxiliary purifier used in the Gram relaxation is not the
-    physical reflected loss port, and is not physically assumed to be in
-    Eve's possession;
+    \item the auxiliary purifier used in the Gram relaxation can be realised
+    by the physical reflected loss port for our \emph{pre-encoding}
+    attenuation ordering, but the latter is securely discarded and not
+    physically given to Eve; the Gram relaxation removes restrictions
+    associated with the private purifier;
     \item the mean-energy constraint must be placed on the variable
     corresponding to the location of the trusted monitor.  When the monitored
     quantity is the light leaving Alice's and Bob's laboratories after trusted
@@ -4578,29 +4604,39 @@ Here \(T\) is the transmitted light returned to the untrusted node,
 trusted loss port of the attenuator, and \(R\) is an auxiliary mathematical
 purifier introduced only after \(L\) has been traced out.
 
-The physical post-attenuation state is
+For the intended order, first apply the trusted beam splitter to the
+incoming light, obtaining a pure dilation
 \[
-    \rho_s^{TE_0}
+    |\Phi_0\rangle_{TE_0L}.
+\]
+The physical post-attenuation, pre-encoding state is
+\[
+    \rho_0^{TE_0}
     =
     \operatorname{Tr}_{L}
-    |\Phi_s\rangle\!\langle\Phi_s|_{TE_0L}.
+    |\Phi_0\rangle\!\langle\Phi_0|_{TE_0L}.
 \]
-The system \(L\) is trusted and unavailable to Eve.  By phase covariance,
+The system \(L\) is discarded securely and unavailable to Eve.  The secret
+phase then acts only on \(T\), so
 \[
-    \rho_s^{TE_0}
+    |\Phi_s\rangle_{TE_0L}
     =
-    W_s\rho_0^{TE_0}W_s^\dagger.
+    (W_s\otimes I_L)|\Phi_0\rangle,
+    \qquad
+    \rho_s^{TE_0}=W_s\rho_0^{TE_0}W_s^\dagger.
 \]
-We then choose a mathematical purification
+The global \(|\Phi_s\rangle\) is a \emph{mathematical dilation}: no actual
+recovery or physical retention of the securely discarded light is required.
+
+For this beam-splitter dilation, a valid choice of the common purified
+family is simply \(|\chi_0\rangle=|\Phi_0\rangle\) with \(R=L\), and
 \[
-    |\chi_0\rangle_{TE_0R}
+    |\chi_s\rangle=(W_s\otimes I_R)|\chi_0\rangle.
 \]
-of \(\rho_0^{TE_0}\) and define
-\[
-    |\chi_s\rangle
-    =
-    (W_s\otimes I_R)|\chi_0\rangle.
-\]
+Other purifications of the same reduced state are also permissible.
+Thus \(R\) is a reference in the proof and \emph{can} be identified with
+the physical loss port in this representation; it is not thereby assumed
+to be accessible to Eve.
 
 A physical Eve acts only on \(TE_0\).  If her instrument has Kraus operators
 \(K_z\), then on the purified representation the physical residual vectors
@@ -4627,74 +4663,88 @@ One may heuristically interpret the enlarged Gram problem as giving Eve access
 to additional purifier-like degrees of freedom, but this is a mathematical
 upper-bounding device rather than a statement about the physical apparatus.
 
-\subsubsection{Why \(R\) must not be identified with the physical loss port}
+\subsubsection{How loss-port access depends on the physical ordering}
 
-If the actual reflected port \(L\) were retained, the complete beamsplitter
-evolution would be unitary and independent of the encoded label \(s\).  Hence
+The key distinction is between a phase modulator acting \emph{after} the
+trusted splitter (our intended setup) and one acting \emph{before} it.
+Write \(B_\tau\) for the beam-splitter dilation.  In our setup,
+\[
+    |\Phi_s^{\mathrm{preloss\;encoding?}}\rangle
+    \quad\text{is not used}; \qquad
+    |\Phi_s\rangle
+    =
+    (W_s^T\otimes I_{E_0L})
+    B_\tau\bigl(|\Psi\rangle_{TE_0}|0\rangle_L\bigr).
+\]
+The global overlaps, even if one hypothetically gives \(L\) to Eve, are
 \begin{equation}
     \langle\Phi_s|\Phi_t\rangle
-    =
-    \langle\psi_s|\psi_t\rangle.
-    \label{eq:app-physical-loss-port-overlap}
-\end{equation}
-At this global level the attenuator does not change distinguishability:
-nothing has actually been discarded.
-
-By contrast, after tracing out \(L\) and constructing the covariant
-purification of the reduced transmitted state, the overlap becomes
-\begin{equation}
-    \langle\chi_s|\chi_t\rangle
     =
     \operatorname{Tr}
     \left[
       \rho_0^{TE_0}W_s^\dagger W_t
-    \right],
+    \right]
+    =
+    \sum_m p_m
+    \left(1-\tau+\tau e^{i\Delta\phi}\right)^m
     \label{eq:app-virtual-purifier-overlap}
 \end{equation}
-which yields the attenuated kernel
-\[
-    \sum_m p_m
-    \left(
-      1-\tau+\tau e^{i\Delta\phi}
-    \right)^m
-\]
-in one mode.
+in one mode.  This is the same attenuated kernel as for the securely
+discarded reflected port.  Giving Eve \(L\) would change the physical
+adversary's capabilities but is already conservatively allowed by the
+unrestricted Gram relaxation for this particular idealized ordering.
 
-For example, for
+If instead the phase modulation acted on the \emph{incoming} mode before
+the splitter, and Eve received the full reflected output, we would have
+\[
+    |\Phi_s^{\rm reverse}\rangle
+    =
+    B_\tau(U_s\otimes I_{E_0})|\Psi\rangle|0\rangle_L,
+\]
+with
+\begin{equation}
+    \langle\Phi_s^{\rm reverse}|\Phi_t^{\rm reverse}\rangle
+    =
+    \langle\Psi|U_s^\dagger U_t|\Psi\rangle
+    =
+    \sum_m p_m e^{im\Delta\phi}.
+    \label{eq:app-physical-loss-port-overlap}
+\end{equation}
+These are the \emph{unattenuated} overlaps.  Phase covariance makes the
+two \emph{reduced transmitted} states equal after tracing out \(L\), but
+it does not make these two \emph{global} source ensembles equal.
+
+For example, with
 \[
     |\psi_\phi\rangle
     =
     \frac{|0\rangle+e^{i\phi}|1\rangle}{\sqrt2},
 \]
-keeping the physical beamsplitter environment gives
+the intended attenuation-before-encoding setup has global overlap
 \[
     \langle\Phi_\phi|\Phi_{\phi'}\rangle
-    =
-    \frac12
-    \left(
-      1+e^{i(\phi'-\phi)}
-    \right),
-\]
-independent of \(\tau\).  The common purification of the reduced transmitted
-state instead gives
-\[
-    \langle\chi_\phi|\chi_{\phi'}\rangle
     =
     1-\frac{\tau}{2}
     +
     \frac{\tau}{2}e^{i(\phi'-\phi)}.
 \]
-For opposite phases,
+For opposite phases, this is \(1-\tau\).  The alternative
+encoding-before-attenuation setup has, when both output ports are kept,
 \[
-    \langle\chi_\phi|\chi_{\phi+\pi}\rangle
+    \langle\Phi_\phi^{\rm reverse}|
+       \Phi_{\phi'}^{\rm reverse}\rangle
     =
-    1-\tau,
+    \frac12\left(1+e^{i(\phi'-\phi)}\right),
 \]
-whereas the global state including the physical loss port remains orthogonal.
-This explicitly shows why
-\[
-    \boxed{R\neq L.}
-\]
+which is zero for opposite phases.  The same reduced transmitted states
+therefore admit different global ensembles depending on which optical
+mode was physically phase modulated.
+
+In our actual security model the reflected output is \emph{securely
+discarded} before the secret phase encoding.  Its role as \(R\) is only a
+purification chosen for the analysis.  This ordering is also the one
+used by Stages~5A--5B: trusted monitoring and any additional attenuation
+are completed before encoding the surviving signal.
 
 \subsection{Where the average-photon-number bound belongs}
 \label{app:energy-bound-placement}
